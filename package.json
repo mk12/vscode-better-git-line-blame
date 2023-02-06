@@ -1,0 +1,60 @@
+{
+    "name": "git-line-blame",
+    "version": "0.0.1",
+    "displayName": "Git Line Blame",
+    "description": "Decorates the current line with git blame information",
+    "publisher": "Mitchell Kember",
+    "license": "MIT",
+    "homepage": "https://github.com/mk12/vscode-git-line-blame",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mk12/vscode-git-line-blame.git"
+    },
+    "extensionKind": [
+        "workspace"
+    ],
+    "engines": {
+        "vscode": "^1.72.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "main": "./out/extension.js",
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "colors": [
+            {
+                "id": "gitlineblame.foregroundColor",
+                "description": "Foreground color of the blame annotation for the current line",
+                "defaults": {
+                    "dark": "#99999969",
+                    "light": "#99999969",
+                    "highContrast": "#99999999"
+                }
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint --fix src/**/*.ts",
+        "fmt": "prettier -w src/**/*.ts"
+    },
+    "devDependencies": {
+        "@types/node": "16.x",
+        "@types/vscode": "^1.72.0",
+        "@typescript-eslint/eslint-plugin": "^5.38.1",
+        "@typescript-eslint/parser": "^5.38.1",
+        "@vscode/test-electron": "^2.1.5",
+        "eslint": "^8.24.0",
+        "eslint-config-prettier": "^8.6.0",
+        "prettier": "^2.8.3",
+        "typescript": "^4.8.4"
+    },
+    "prettier": {
+        "trailingComma": "all"
+    }
+}
