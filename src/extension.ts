@@ -19,7 +19,6 @@ export function deactivate() {
 }
 
 let gitApi: git.API;
-let queuedFiles: vscode.Uri[];
 
 async function loadGitApi() {
   const extension =
@@ -32,74 +31,94 @@ async function loadGitApi() {
     ? extension.exports
     : await extension.activate();
   const api = exports.getAPI(1);
-  api.onDidChangeState((state) => {
+  api.onDidChangeState(async (state) => {
     if (state === "initialized") {
       console.log(`git API initialized with ${api.repositories.length} repos`);
       gitApi = api;
-      queuedFiles.forEach(initializeFile);
-      queuedFiles = [];
+      await Promise.all(
+        vscode.window.visibleTextEditors.map((editor) =>
+          onDidOpenTextDocument(editor.document),
+        ),
+      );
+      const active = vscode.window.activeTextEditor;
+      if (active !== undefined) {
+        await onDidChangeTextEditorSelection({
+          textEditor: active,
+          selections: active.selections,
+          kind: undefined,
+        });
+      }
     }
   });
+}
+
+const userEmailCache = new Map<string, string>();
+
+async function getUserEmail(repo: git.Repository): Promise<string> {
+  const path = repo.rootUri.fsPath;
+  const email = userEmailCache.get(path);
+  if (email !== undefined) return email;
+  const value = (await gitStdout(repo, ["config", "user.email"])).trim();
+  userEmailCache.set(path, value);
+  return value;
 }
 
 interface Commit {
   author: string;
   email: string;
-  // Author's timestamp, in ms since epoch.
+  // Author's timestamp, in epoch seconds.
   timestamp: number;
+  // First line of the commit message.
   summary: string;
-  message?: string;
+  // Markdown message to display on hover.
+  message?: string[];
 }
 
-const shaToCommit = new Map<string, Commit>();
-const pathToLineShas = new Map<string, string[] | undefined>();
+// Full git commit SHA.
+type Sha = string;
+
+// An array of SHAs, one per zero-based line.
+type Blame = Sha[];
+
+const shaToCommit = new Map<Sha, Commit>();
+const pathToBlame = new Map<string, Blame | "untracked">();
 
 async function onDidOpenTextDocument(document: vscode.TextDocument) {
   const uri = document.uri;
   if (uri.scheme !== "file") return;
-  if (pathToLineShas.has(uri.fsPath)) return;
-  if (gitApi === undefined) {
-    queuedFiles.push(uri);
-  } else {
-    await initializeFile(uri);
-  }
+  if (pathToBlame.has(uri.fsPath)) return;
+  if (gitApi === undefined) return;
+  await loadBlameForFile(uri);
 }
 
 function onDidSaveTextDocument(document: vscode.TextDocument) {
   console.log("saved text document");
 }
 
-async function initializeFile(uri: vscode.Uri) {
+async function loadBlameForFile(uri: vscode.Uri) {
+  console.log(`loading blame for ${uri}`);
   const repo = gitApi.getRepository(uri);
   if (!repo) {
     console.error(`no repo found for file: ${uri}`);
     return;
   }
-  const blame = child_process.spawn(gitApi.git.path, [
-    "-C",
-    repo.rootUri.fsPath,
-    "blame",
-    "--incremental",
-    "--",
-    uri.fsPath,
-  ]);
-  blame.on("close", (code) => {
-    switch (code) {
-      case 0:
-        break;
-      case 128:
-        pathToLineShas.set(uri.fsPath, undefined);
-        break;
-      default:
+  const userEmail = await getUserEmail(repo);
+  const proc = gitSpawn(
+    repo,
+    ["blame", "--incremental", "--", uri.fsPath],
+    (code) => {
+      if (code === 128) {
+        pathToBlame.set(uri.fsPath, "untracked");
+      } else if (code !== 0) {
         console.error(`git blame failed with exit code ${code}`);
-        break;
-    }
-  });
-  const lines: string[] = [];
-  pathToLineShas.set(uri.fsPath, lines);
+      }
+    },
+  );
+  const blame: string[] = [];
+  pathToBlame.set(uri.fsPath, blame);
   let expectSha = true;
   let commit = undefined;
-  for await (const line of readline.createInterface({ input: blame.stdout })) {
+  for await (const line of readline.createInterface({ input: proc.stdout })) {
     if (expectSha) {
       expectSha = false;
       const words = line.split(" ");
@@ -107,7 +126,7 @@ async function initializeFile(uri: vscode.Uri) {
       const start = parseInt(words[2]) - 1;
       const num = parseInt(words[3]);
       for (let i = start; i < start + num; i++) {
-        lines[i] = sha;
+        blame[i] = sha;
       }
       if (!shaToCommit.has(sha)) {
         commit = {} as Commit;
@@ -127,16 +146,21 @@ async function initializeFile(uri: vscode.Uri) {
     const content = line.substring(idx + 1);
     switch (tag) {
       case "author":
-        commit.author = content;
-        break;
-      case "summary":
-        commit.summary = content;
+        if (commit.author === undefined) {
+          commit.author = content;
+        }
         break;
       case "author-mail":
-        commit.email = content;
+        commit.email = content.replace(/[<>]/g, "");
+        if (commit.email === userEmail) {
+          commit.author = "You";
+        }
         break;
       case "author-time":
         commit.timestamp = parseInt(content);
+        break;
+      case "summary":
+        commit.summary = truncateEllipsis(content.trim(), 50);
         break;
     }
   }
@@ -150,71 +174,164 @@ const decorationType = vscode.window.createTextEditorDecorationType({
   },
 });
 
-function onDidChangeTextEditorSelection(
-  event: vscode.TextEditorSelectionChangeEvent,
-) {
-  const uri = event.textEditor.document.uri;
-  if (uri.scheme !== "file") return;
-  const lineShas = pathToLineShas.get(uri.fsPath);
-  if (lineShas === undefined) {
-    event.textEditor.setDecorations(decorationType, []);
-    return;
-  }
-  const numbers = Array.from(selectedLineNumbers(event.selections));
-  event.textEditor.setDecorations(
-    decorationType,
-    numbers.map((line) => {
-      const commit = shaToCommit.get(lineShas[line]);
-      let contentText;
-      if (commit === undefined) {
-        contentText = "FAILED TO GET BLAME INFORMATION";
-      } else {
-        const when = friendlyTimestamp(commit.timestamp);
-        contentText = `${commit.author}, ${when} • ${commit.summary}`;
-      }
-      return {
-        range: event.textEditor.document.lineAt(line).range,
-        hoverMessage: "TODO commit",
-        renderOptions: { after: { contentText } },
-      };
-    }),
-  );
+// Closed range of zero-based line numbers, with `start <= end`.
+interface LineRange {
+  start: number;
+  end: number;
 }
 
-function selectedLineNumbers(
-  selections: readonly vscode.Selection[],
-): Set<number> {
-  const lines = new Set<number>();
-  for (const selection of selections) {
-    const from = Math.min(selection.start.line, selection.end.line);
-    const to = Math.max(selection.start.line, selection.end.line);
-    for (let i = from; i <= to; i++) {
-      lines.add(i);
-    }
+function lineRange({ start, end }: vscode.Range): LineRange {
+  return { start: start.line, end: end.line };
+}
+
+function linesRangesEqual(r1: LineRange, r2: LineRange): boolean {
+  return r1.start === r2.start && r1.end === r2.end;
+}
+
+const pathToLastRange = new Map<string, LineRange>();
+
+const maxLineDecorations = 200;
+
+async function onDidChangeTextEditorSelection(
+  event: vscode.TextEditorSelectionChangeEvent,
+) {
+  const editor = event.textEditor;
+  const uri = editor.document.uri;
+  if (uri.scheme !== "file") return;
+  const path = uri.fsPath;
+  const range = lineRange(event.selections[0]);
+  const last = pathToLastRange.get(path);
+  if (last !== undefined && linesRangesEqual(range, last)) return;
+  pathToLastRange.set(path, range);
+  const blame = pathToBlame.get(path);
+  if (blame === undefined) {
+    editor.setDecorations(decorationType, []);
+    return;
   }
-  return lines;
+  const repo = gitApi.getRepository(uri);
+  if (!repo) {
+    console.error(`no repo found for file: ${uri}`);
+    return;
+  }
+  const decorationOptions = [];
+  let lastSha = undefined;
+  const rangeEnd = Math.min(range.end, blame.length - 1);
+  const limit = range.start + maxLineDecorations;
+  const logPromises = [];
+  for (let i = range.start; i <= rangeEnd; i++) {
+    const sha = blame[i];
+    if (sha === lastSha) continue;
+    lastSha = sha;
+    const end = editor.document.lineAt(i).range.end;
+    const option = {
+      range: new vscode.Range(end, end),
+      renderOptions: {
+        after: { contentText: undefined as string | undefined },
+      },
+      hoverMessage: undefined as string[] | undefined,
+    };
+    if (i > limit) {
+      option.renderOptions.after.contentText = "[Exceeded git blame limit]";
+      decorationOptions.push(option);
+      break;
+    }
+    const commit = shaToCommit.get(sha);
+    let text;
+    if (commit === undefined) {
+      option.renderOptions.after.contentText =
+        "[Failed to get git blame information]";
+    } else {
+      const when = friendlyTimestamp(commit.timestamp);
+      option.renderOptions.after.contentText = `${commit.author}, ${when} • ${commit.summary}`;
+      if (commit.message === undefined) {
+        logPromises.push(loadCommitMessage(sha, repo, when, commit, option));
+      } else {
+        option.hoverMessage = commit.message;
+      }
+    }
+    decorationOptions.push(option);
+  }
+  await Promise.all(logPromises);
+  editor.setDecorations(decorationType, decorationOptions);
+}
+
+async function loadCommitMessage(
+  sha: Sha,
+  repo: git.Repository,
+  when: string,
+  commit: Commit,
+  option: vscode.DecorationOptions,
+) {
+  const date = isoTimestamp(commit.timestamp);
+  const commitMsg = await gitStdout(repo, ["show", "-s", "--format=%B", sha]);
+  let message = [`[**${commit.author}**](mailto:${commit.email} "${commit.email}"), ${when} (${date})\n\n${commitMsg}`, "TEST"];
+  commit.message = message;
+  option.hoverMessage = message;
+}
+
+function gitSpawn(
+  repo: git.Repository,
+  args: string[],
+  onClose?: (code: number) => void,
+): child_process.ChildProcessWithoutNullStreams {
+  const fullArgs = ["-C", repo.rootUri.fsPath, ...args];
+  const proc = child_process.spawn(gitApi.git.path, fullArgs);
+  if (onClose !== undefined) {
+    proc.on("close", onClose);
+  } else {
+    proc.on("close", (code) => {
+      if (code === 0) return;
+      console.error(
+        `${JSON.stringify(proc.spawnargs)} failed with exit code ${code}`,
+      );
+    });
+  }
+  return proc;
+}
+
+async function gitStdout(
+  repo: git.Repository,
+  args: string[],
+): Promise<string> {
+  let result = "";
+  for await (const data of gitSpawn(repo, args).stdout) {
+    result += data;
+  }
+  return result;
+}
+
+function isoTimestamp(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function friendlyTimestamp(timestamp: number): string {
   const s = Math.round(Date.now() / 1000 - timestamp);
   if (s < 30) return "just now";
-  const m = Math.floor(s / 60);
-  if (m === 0) return s + " seconds ago";
-  if (m === 1) return "a minute ago";
-  const h = Math.floor(m / 60);
-  if (h === 0) return m + " minutes ago";
-  if (h === 1) return "an hour ago";
-  const d = Math.floor(h / 24);
-  if (d === 0) return h + " hours ago";
-  if (d === 1) return "yesterday";
-  const w = Math.floor(d / 7);
-  if (w === 0) return d + " days ago";
-  if (w === 1) return "a week ago";
-  const mm = Math.floor(w / 4.3333333333);
-  if (mm === 0) return w + " weeks ago";
-  if (mm === 1) return "a month ago";
-  const y = Math.floor(d / 365.25);
-  if (y === 0) return mm + " months ago";
-  if (y === 1) return "a year ago";
-  return y + " years ago";
+  const m = s / 60;
+  if (m < 1) return Math.round(s) + " seconds ago";
+  if (m < 1.5) return "a minute ago";
+  const h = m / 60;
+  if (h < 1) return Math.round(m) + " minutes ago";
+  if (h < 1.5) return "an hour ago";
+  const d = h / 24;
+  if (d < 1) return Math.round(h) + " hours ago";
+  if (d < 1.5) return "yesterday";
+  const w = d / 7;
+  if (w < 1) return Math.round(d) + " days ago";
+  if (w < 1.5) return "last week";
+  const mm = w / 4.3333333333;
+  if (mm < 1) return Math.round(w) + " weeks ago";
+  if (mm < 1.5) return "last month";
+  const y = d / 365.25;
+  if (y < 1) return Math.round(mm) + " months ago";
+  if (y < 1.5) return "last year";
+  return Math.round(y) + " years ago";
+}
+
+function truncateEllipsis(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.substring(0, maxLen - 1) + "…";
 }
