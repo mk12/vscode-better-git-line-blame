@@ -36,6 +36,8 @@ interface Commit {
   email: string;
   timestamp: number; // Unix timestamp in seconds
   summary: string;
+  prevFilename?: string;
+  filename: string;
   message?: string; // loaded on demand
 }
 
@@ -160,8 +162,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
-  const path = editor.document.uri.fsPath;
-  const file = repo.files.get(path) ?? loadFile(repo, editor.document, editor);
+  const file = repo.files.get(editor.document.uri.fsPath) ?? loadFile(repo, editor.document, editor);
   if (file.blame === "untracked") return editor.setDecorations(blameDecoration, []);
   const startLine = event.selections[0].start.line;
   const endLine = event.selections[0].end.line;
@@ -212,10 +213,10 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
           const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
           // Convert to hard line breaks for Markdown.
           commit.message = rawMessage.replace(/\n/g, "  \n");
-          option.hoverMessage = buildHoverMessage(ref, commit, when, path);
+          option.hoverMessage = buildHoverMessage(ref, commit, when);
         })());
       } else {
-        option.hoverMessage = buildHoverMessage(ref, commit, when, path);
+        option.hoverMessage = buildHoverMessage(ref, commit, when);
       }
     }
     decorationOptions.push(option);
@@ -225,11 +226,11 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   editor.setDecorations(blameDecoration, decorationOptions);
 }
 
-function buildHoverMessage(sha: Sha, commit: Commit, when: string, path: string) {
+function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
   const command = vscode.Uri.from({
     scheme: "command",
     path: "vscode.diff",
-    query: JSON.stringify([gitUri(sha + "~", path), gitUri(sha, path)]),
+    query: JSON.stringify([gitUri(sha + "~", commit.prevFilename ?? commit.filename), gitUri(sha, commit.filename)]),
   });
   return [
     trusted(`**${commit.author}** [${commit.email}](mailto:${commit.email}), ${when} (${isoDate(commit.timestamp)})\n\n${commit.message}`),
@@ -272,6 +273,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   log.appendLine(`loading blame: ${path}`);
   const proc = gitSpawn(repo.gitRepo, ["blame", "--incremental", "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
+  const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
   const blame = file.blame as Ref[];
   let expectSha = true;
   let commit = undefined;
@@ -292,10 +294,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
     }
     const idx = line.indexOf(" ");
     const tag = line.substring(0, idx);
-    if (tag === "filename") {
-      expectSha = true;
-      continue;
-    }
+    if (tag === "filename") expectSha = true;
     if (!commit) continue;
     const content = line.substring(idx + 1);
     switch (tag) {
@@ -311,6 +310,12 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         break;
       case "summary":
         commit.summary = truncateEllipsis(content.trim(), summaryCharLimit);
+        break;
+      case "previous":
+        commit.prevFilename = rootSlash + content.substring(content.indexOf(" ") + 1);
+        break;
+      case "filename":
+        commit.filename = rootSlash + content;
         break;
     }
   }
