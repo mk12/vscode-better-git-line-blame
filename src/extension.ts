@@ -209,7 +209,9 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
       option.renderOptions.after.contentText = `${commit.author}, ${when} • ${commit.summary}`;
       if (commit.message === undefined) {
         logPromises.push((async () => {
-          commit.message = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
+          const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
+          // Convert to hard line breaks for Markdown.
+          commit.message = rawMessage.replace(/\n/g, "  \n");
           option.hoverMessage = buildHoverMessage(ref, commit, when, path);
         })());
       } else {
