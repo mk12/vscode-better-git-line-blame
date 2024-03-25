@@ -138,20 +138,16 @@ function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
   if (file.state === "loading")
     file.pendingChanges.push(...event.contentChanges);
   else if (file.state === "done")
-    for (const change of event.contentChanges) processChange(file, change, document);
+    for (const change of event.contentChanges) processChange(file, change);
 }
 
-function processChange(file: File, change: vscode.TextDocumentContentChangeEvent, document?: vscode.TextDocument) {
+function processChange(file: File, change: vscode.TextDocumentContentChangeEvent) {
   if (file.blame === "untracked") return;
   const start = change.range.start.line;
   const end = change.range.end.line;
   const lines = change.text.split("\n");
   const newEnd = start + lines.length - 1;
-  const inc = change.text.charAt(0) === "\n" && document && document.lineAt(newEnd).text.length === lines[lines.length - 1].length;
-  const dec = change.text === "" && document && document.lineAt(start).text.length === change.range.start.character;
-  const dec2 = change.text.charAt(change.text.length - 1) === "\n" && document && change.range.start.character === 0;
-  log.appendLine(`change text="${change.text}" start=${change.range.start.line}:${change.range.start.character} end=${change.range.end.line}:${change.range.end.character} inc=${inc} dec=${dec} dec2=${dec2} start=${start} end=${end} newEnd=${newEnd}`);
-  // for (let i = start + (inc || dec2 ? 1 : 0); i <= Math.min(end, newEnd) - (dec ? 1 : 0); i++) file.blame[i] = Uncommitted;
+  for (let i = start; i <= Math.min(end, newEnd); i++) file.blame[i] = Uncommitted;
   if (newEnd < end) file.blame.splice(newEnd + 1, end - newEnd);
   else if (newEnd > end) file.blame.splice(end + 1, 0, ...Array(newEnd - end).fill(Uncommitted));
 }

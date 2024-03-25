@@ -15,11 +15,12 @@ x blame multiple files at once
 + listen for git events (commit, change branch, etc.)
      + check if HEAD has changed, then redo blames
      + reblame all on demand after clearing, not just current
-+ handle unsaved/saved gaps not in the blame
-    + no "uncommitted changes" for line when adding blank line at end of line
-    - ... adding blank line at beginning of line
-    + ... deleting blank line at end of line
-    - ... deleting blank line at beginning of line
+x handle unsaved/saved gaps not in the blame
+    x no "uncommitted changes" for line when adding blank line at end of line
+    x ... adding blank line at beginning of line
+    x ... deleting blank line at end of line
+    x ... deleting blank line at beginning of line
+    x too hard
 + queue changes while loading
 + show "Loading blame"
 + commands to reblame
