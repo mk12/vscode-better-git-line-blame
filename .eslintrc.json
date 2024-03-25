@@ -10,20 +10,10 @@
     ],
     "extends": [
         "eslint:recommended",
-        "plugin:@typescript-eslint/recommended",
-        "prettier"
+        "plugin:@typescript-eslint/recommended"
     ],
     "rules": {
-        "eqeqeq": "error",
-        "sort-imports": "off",
-        "@typescript-eslint/no-unused-vars": [
-            "warn",
-            {
-                "argsIgnorePattern": "^_",
-                "varsIgnorePattern": "^_"
-            }
-        ],
-        "@typescript-eslint/no-unu"
+        "eqeqeq": "error"
     },
     "ignorePatterns": [
         "/out"

@@ -17,13 +17,23 @@
         "vscode": "^1.72.0"
     },
     "categories": [
-        "Other"
+        "SCM Providers"
     ],
     "main": "./out/extension.js",
     "activationEvents": [
         "onStartupFinished"
     ],
     "contributes": {
+        "commands": [
+            {
+                "command": "git-line-blame.reblameFile",
+                "title": "Git Line Blame: Reblame File"
+            },
+            {
+                "command": "git-line-blame.clearCache",
+                "title": "Git Line Blame: Clear Cache"
+            }
+        ],
         "colors": [
             {
                 "id": "gitlineblame.foregroundColor",
@@ -40,8 +50,7 @@
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
-        "lint": "eslint --fix src/**/*.ts",
-        "fmt": "prettier -w src/**/*.ts"
+        "lint": "eslint --fix src/**/*.ts"
     },
     "devDependencies": {
         "@types/node": "16.x",
@@ -50,11 +59,6 @@
         "@typescript-eslint/parser": "^5.38.1",
         "@vscode/test-electron": "^2.1.5",
         "eslint": "^8.24.0",
-        "eslint-config-prettier": "^8.6.0",
-        "prettier": "^2.8.3",
         "typescript": "^4.8.4"
-    },
-    "prettier": {
-        "trailingComma": "all"
     }
 }
