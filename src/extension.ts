@@ -8,6 +8,7 @@ const maxLineDecorations = 100;
 
 let log: vscode.LogOutputChannel;
 let blameDecoration: vscode.TextEditorDecorationType;
+let editorUpdateId = new Map<vscode.TextEditor, number>();
 let gitApi: git.API;
 
 const cache = new Map<string, Repository>();
@@ -141,6 +142,8 @@ function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
     file.pendingChanges.push(...event.contentChanges);
   else if (file.state === "done")
     for (const change of event.contentChanges) processChange(file, change);
+  const active = vscode.window.activeTextEditor;
+  if (active?.document === event.document) updateEditor(active);
 }
 
 function processChange(file: File, change: vscode.TextDocumentContentChangeEvent) {
@@ -162,6 +165,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
+  const updateId = (editorUpdateId.get(editor) ?? 0) + 1;
+  editorUpdateId.set(editor, updateId);
   const file = repo.files.get(editor.document.uri.fsPath) ?? loadFile(repo, editor.document, editor);
   if (file.blame === "untracked") return editor.setDecorations(blameDecoration, []);
   const startLine = event.selections[0].start.line;
@@ -169,7 +174,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const actualHead = repo.gitRepo.state.HEAD?.commit;
   if (repo.head !== actualHead) {
     const newHead = actualHead ?? Uncommitted;
-    log.append(`detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
+    log.appendLine(`detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
     repo.head = newHead;
     repo.files.clear();
     reloadFile(repo, file, editor.document, editor);
@@ -222,8 +227,10 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     decorationOptions.push(option);
   }
   if (file.state === "loading") file.pendingEditors.add(editor);
-  await Promise.all(logPromises);
   editor.setDecorations(blameDecoration, decorationOptions);
+  await Promise.all(logPromises);
+  if (logPromises.length !== 0 && editorUpdateId.get(editor) === updateId)
+    editor.setDecorations(blameDecoration, decorationOptions);
 }
 
 function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
