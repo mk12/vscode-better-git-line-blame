@@ -181,8 +181,6 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
-  const updateId = (editorUpdateId.get(editor) ?? 0) + 1;
-  editorUpdateId.set(editor, updateId);
   const file = repo.files.get(editor.document.uri.fsPath) ?? loadFile(repo, editor.document, editor);
   if (file.blame === "untracked") return editor.setDecorations(blameDecoration, []);
   const startLine = event.selections[0].start.line;
@@ -244,6 +242,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   }
   if (file.state === "loading") file.pendingEditors.add(editor);
   editor.setDecorations(blameDecoration, decorationOptions);
+  const updateId = (editorUpdateId.get(editor) ?? 0) + 1;
+  editorUpdateId.set(editor, updateId);
   await Promise.all(logPromises);
   if (logPromises.length !== 0 && editorUpdateId.get(editor) === updateId)
     editor.setDecorations(blameDecoration, decorationOptions);
