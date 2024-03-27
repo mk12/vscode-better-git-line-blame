@@ -1,7 +1,7 @@
 {
-    "name": "git-line-blame",
+    "name": "better-git-line-blame",
     "version": "0.0.1",
-    "displayName": "Git Line Blame",
+    "displayName": "Better Git Line Blame",
     "description": "Decorates the current line with git blame information",
     "publisher": "mk12",
     "license": "MIT",
