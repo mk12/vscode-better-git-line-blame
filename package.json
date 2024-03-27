@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "displayName": "Git Line Blame",
     "description": "Decorates the current line with git blame information",
-    "publisher": "Mitchell Kember",
+    "publisher": "mk12",
     "license": "MIT",
     "homepage": "https://github.com/mk12/vscode-git-line-blame",
     "repository": {
