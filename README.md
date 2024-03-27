@@ -6,7 +6,7 @@ I created this extension because I find [GitLens] too bloated. Line blaming is t
 
 ## Install
 
-Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=mk12.better-git-line-blame) on the Studio Marketplace
+Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=mk12.better-git-line-blame) on the Visual Studio Marketplace.
 
 ## Features
 
