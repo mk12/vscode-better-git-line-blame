@@ -1,6 +1,6 @@
 {
     "name": "better-git-line-blame",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "displayName": "Better Git Line Blame",
     "description": "Annotates the current line with git blame information",
     "publisher": "mk12",
