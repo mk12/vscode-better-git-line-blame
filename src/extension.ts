@@ -242,7 +242,7 @@ function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
   });
   return [
     trusted(`**${commit.author}** [${commit.email}](mailto:${commit.email}), ${when} (${isoDate(commit.timestamp)})\n\n${commit.message}`),
-    trusted(`[Diff](${command}): ${sha}`),
+    trusted(`[Show diff](${command}): ${sha}`),
   ];
 }
 
