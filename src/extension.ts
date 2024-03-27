@@ -8,9 +8,9 @@ const maxLineDecorations = 100;
 
 let log: vscode.LogOutputChannel;
 let blameDecoration: vscode.TextEditorDecorationType;
-let editorUpdateId = new Map<vscode.TextEditor, number>();
 let gitApi: git.API;
 
+const editorUpdateId = new Map<vscode.TextEditor, number>();
 const cache = new Map<string, Repository>();
 
 interface Repository {
@@ -24,6 +24,7 @@ interface Repository {
 interface File {
   blame: Ref[] | "untracked"; // refs indexed by 0-based line number
   state: "loading" | "done" | "dirty";
+  wasTracked: boolean;
   pendingChanges: vscode.TextDocumentContentChangeEvent[];
   pendingEditors: Set<vscode.TextEditor>;
 }
@@ -116,7 +117,7 @@ function onDidSaveTextDocument(document: vscode.TextDocument) {
 }
 
 function loadFile(repo: Repository, document: vscode.TextDocument, ...editors: vscode.TextEditor[]) {
-  const file: File = { blame: [], state: "loading", pendingChanges: [], pendingEditors: new Set(editors) };
+  const file: File = { blame: [], state: "loading", wasTracked: false, pendingChanges: [], pendingEditors: new Set(editors) };
   const path = document.uri.fsPath;
   repo.files.set(path, file);
   if (document.isDirty) file.state = "dirty"; else loadBlameForFile(repo, file, path);
@@ -202,7 +203,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     }
     let commit;
     if (file.state === "dirty") {
-      option.renderOptions.after.contentText = "(Save to blame)";
+      if (file.wasTracked) option.renderOptions.after.contentText = "(Save to blame)";
     } else if (ref === undefined) {
       if (i !== editor.document.lineCount - 1) option.renderOptions.after.contentText = "Loading blame…";
     } else if (ref === Uncommitted) {
@@ -331,6 +332,8 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
     file.blame = "untracked";
   else if (code !== 0)
     log.appendLine(`ERROR: git blame failed with exit code ${code}`);
+  else
+    file.wasTracked = true;
   file.state = "done";
   for (const change of file.pendingChanges) processChange(file, change);
   file.pendingChanges = [];
