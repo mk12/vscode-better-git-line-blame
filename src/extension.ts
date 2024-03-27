@@ -220,8 +220,9 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
       option.renderOptions.after.contentText =
         "(Failed to get git blame information)";
     } else {
+      const who = commit.email === repo.email ? "You" : commit.author;
       const when = friendlyTimestamp(commit.timestamp);
-      option.renderOptions.after.contentText = `${commit.author}, ${when} • ${commit.summary}`;
+      option.renderOptions.after.contentText = `${who}, ${when} • ${commit.summary}`;
       if (commit.message === undefined) {
         logPromises.push((async () => {
           const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
@@ -248,8 +249,10 @@ function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
     path: "vscode.diff",
     query: JSON.stringify([gitUri(sha + "~", commit.prevFilename ?? commit.filename), gitUri(sha, commit.filename)]),
   });
+  // Prevent automatic mailto link.
+  const email = commit.email.replace("@", "&#64;");
   return [
-    trusted(`**${commit.author}** [${commit.email}](mailto:${commit.email}), ${when} (${isoDate(commit.timestamp)})\n\n${commit.message}`),
+    trusted(`**${commit.author}** <${email}>, ${when} (${isoDate(commit.timestamp)})\n\n${commit.message}`),
     trusted(`[Show diff](${command}): ${sha}`),
   ];
 }
@@ -319,7 +322,6 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         break;
       case "author-mail":
         commit.email = content.replace(/[<>]/g, "");
-        if (commit.email === repo.email) commit.author = "You";
         break;
       case "author-time":
         commit.timestamp = parseInt(content);
