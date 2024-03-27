@@ -2,7 +2,7 @@
     "name": "better-git-line-blame",
     "version": "0.0.1",
     "displayName": "Better Git Line Blame",
-    "description": "Decorates the current line with git blame information",
+    "description": "Annotates the current line with git blame information",
     "publisher": "mk12",
     "license": "MIT",
     "homepage": "https://github.com/mk12/vscode-git-line-blame",
@@ -37,7 +37,7 @@
         "colors": [
             {
                 "id": "gitlineblame.foregroundColor",
-                "description": "Foreground color of the blame decoration for the current line",
+                "description": "Foreground color of the blame annotations for the current line",
                 "defaults": {
                     "dark": "#99999969",
                     "light": "#99999969",

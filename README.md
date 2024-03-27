@@ -1,27 +1,22 @@
-# VS Code Git Line Blame
+# VS Code: Better Git Line Blame
 
-A simple VS Code extension that decorates the current line with git blame information.
+A simple VS Code extension that annotates the current line with git blame information.
 
-I created this extension because I found [GitLens] to be too bloated. Line blaming is the only feature that I actually need.
+I created this extension because I find [GitLens] too bloated. Line blaming is the only feature that I actually need.
 
 ## Install
 
-```sh
-npm install
-npm install -g vsce
-vsce package
-code --install-extension *.vsix
-```
+Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=mk12.better-git-line-blame) on the Studio Marketplace
 
 ## Features
 
-- Displays line decorations in the same style as GitLens.
-- Decorates all lines at once when selecting multiple lines.
+- Displays line annotations in the same style as GitLens.
+- Annotates all lines at once when selecting multiple lines.
 - On hover, shows the commit author, date, message, and SHA.
 - Includes a "Show diff" link using VS Code's built-in diff viewer.
 - Supports multiple git repositories in the same workspace.
 - Uses `git blame --incremental` to provide blame quickly and incrementally.
-- Loads commit message lazily without blocking blame decoration rendering.
+- Loads commit message lazily without blocking blame annotation rendering.
 - Caches all information to avoid invoking git more than necessary.
 - Handles untracked files, unsaved edits, and git branch changes.
 - Provides "Reblame File" and "Clear Cache" commands (rarely needed).
