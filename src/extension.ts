@@ -352,18 +352,18 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   await Promise.all(editors.map(updateEditor));
 }
 
-function gitSpawn(repo: git.Repository, args: string[], onClose?: (code: number) => void) {
+function gitSpawn(repo: git.Repository, args: string[]) {
   const fullArgs = ["-C", repo.rootUri.fsPath, ...args];
-  const proc = child_process.spawn(gitApi.git.path, fullArgs);
-  proc.on("close", onClose ?? ((code) => {
-    if (code !== 0) log.appendLine(`ERROR: ${JSON.stringify(proc.spawnargs)} failed with exit code ${code}`);
-  }));
-  return proc;
+  return child_process.spawn(gitApi.git.path, fullArgs);
 }
 
 async function gitStdout(repo: git.Repository, args: string[]) {
+  const proc = gitSpawn(repo, args);
+  proc.on("close", (code) => {
+    if (code !== 0) log.appendLine(`ERROR: ${JSON.stringify(proc.spawnargs)} failed with exit code ${code}`);
+  });
   let result = "";
-  for await (const data of gitSpawn(repo, args).stdout) result += data;
+  for await (const data of proc.stdout) result += data;
   return result;
 }
 
