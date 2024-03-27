@@ -61,8 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   const exports = extension.isActive ? extension.exports : await extension.activate();
   const api = exports.getAPI(1);
-  api.onDidChangeState(async (state) => {
-    if (state !== "initialized") return;
+  const initialize = async () => {
     log.appendLine(`git API initialized with ${api.repositories.length} repo(s)`);
     gitApi = api;
     for (const repo of api.repositories) cache.set(repo.rootUri.fsPath, {
@@ -88,7 +87,16 @@ export async function activate(context: vscode.ExtensionContext) {
     for (const repo of cache.values()) numFiles += repo.files.size;
     log.appendLine(`blamed ${numFiles} initial file(s)`);
     updateEditor(vscode.window.activeTextEditor);
-  });
+  };
+  if (api.state === "initialized") {
+    await initialize();
+  } else {
+    const listener = api.onDidChangeState((state) => {
+      listener.dispose();
+      if (state === "initialized") initialize();
+    });
+    context.subscriptions.push(listener);
+  }
 }
 
 export function deactivate() { cache.clear(); }
