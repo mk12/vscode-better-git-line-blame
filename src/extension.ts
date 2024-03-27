@@ -10,12 +10,12 @@ let log: vscode.LogOutputChannel;
 let blameDecoration: vscode.TextEditorDecorationType;
 let gitApi: git.API;
 
-const editorUpdateId = new Map<vscode.TextEditor, number>();
 const cache = new Map<string, Repository>();
+const editorUpdateId = new Map<vscode.TextEditor, number>();
 
 interface Repository {
   gitRepo: git.Repository,
-  email: string;
+  email?: string;
   head: Ref;
   files: Map<string, File>;
   commits: Map<Sha, Commit>;
@@ -30,8 +30,8 @@ interface File {
 }
 
 type Sha = string;
-const Uncommitted = Symbol();
-type Ref = Sha | typeof Uncommitted;
+const uncommitted = Symbol("uncommited");
+type Ref = Sha | typeof uncommitted;
 
 interface Commit {
   author: string;
@@ -65,14 +65,10 @@ export async function activate(context: vscode.ExtensionContext) {
   const initialize = async () => {
     log.appendLine(`git API initialized with ${api.repositories.length} repo(s)`);
     gitApi = api;
-    for (const repo of api.repositories) cache.set(repo.rootUri.fsPath, {
-      gitRepo: repo,
-      email: (await gitStdout(repo, ["config", "user.email"])).trim(),
-      head: repo.state.HEAD?.commit ?? Uncommitted,
-      files: new Map(),
-      commits: new Map(),
-    });
+    for (const repo of api.repositories) addRepository(repo);
     context.subscriptions.push(
+      api.onDidOpenRepository(addRepository),
+      api.onDidCloseRepository(removeRepository),
       vscode.workspace.onDidOpenTextDocument(onDidOpenTextDocument),
       vscode.workspace.onDidSaveTextDocument(onDidSaveTextDocument),
       vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocument),
@@ -101,6 +97,24 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() { cache.clear(); }
+
+function addRepository(gitRepo: git.Repository): Repository {
+  const path = gitRepo.rootUri.fsPath;
+  const existing = cache.get(path);
+  if (existing) return existing;
+  log.appendLine(`adding git repo: ${path}`);
+  const repo: Repository = {
+    gitRepo,
+    head: gitRepo.state.HEAD?.commit ?? uncommitted,
+    files: new Map(),
+    commits: new Map(),
+  };
+  cache.set(path, repo);
+  gitStdout(gitRepo, ["config", "user.email"]).then((output) => repo.email = output.trim());
+  return repo;
+}
+
+function removeRepository(gitRepo: git.Repository) { cache.delete(gitRepo.rootUri.fsPath); }
 
 function commandClearCache() { for (const repo of cache.values()) repo.files.clear(); }
 
@@ -168,9 +182,9 @@ function processChange(file: File, change: vscode.TextDocumentContentChangeEvent
   const end = change.range.end.line;
   const lines = change.text.split("\n");
   const newEnd = start + lines.length - 1;
-  for (let i = start; i <= Math.min(end, newEnd); i++) file.blame[i] = Uncommitted;
+  for (let i = start; i <= Math.min(end, newEnd); i++) file.blame[i] = uncommitted;
   if (newEnd < end) file.blame.splice(newEnd + 1, end - newEnd);
-  else if (newEnd > end) file.blame.splice(end + 1, 0, ...Array(newEnd - end).fill(Uncommitted));
+  else if (newEnd > end) file.blame.splice(end + 1, 0, ...Array(newEnd - end).fill(uncommitted));
 }
 
 function updateEditor(editor?: vscode.TextEditor) {
@@ -187,8 +201,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const endLine = event.selections[0].end.line;
   const actualHead = repo.gitRepo.state.HEAD?.commit;
   if (repo.head !== actualHead) {
-    const newHead = actualHead ?? Uncommitted;
-    log.appendLine(`detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
+    const newHead = actualHead ?? uncommitted;
+    log.appendLine(`${repo.gitRepo.rootUri.fsPath}: detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
     repo.head = newHead;
     repo.files.clear();
     reloadFile(repo, file, editor.document, editor);
@@ -218,7 +232,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
       if (file.wasTracked) option.renderOptions.after.contentText = "(Save to blame)";
     } else if (ref === undefined) {
       if (i !== editor.document.lineCount - 1) option.renderOptions.after.contentText = "Loading blame…";
-    } else if (ref === Uncommitted) {
+    } else if (ref === uncommitted) {
       option.renderOptions.after.contentText = "You • Uncommitted changes";
     } else if ((commit = repo.commits.get(ref)) === undefined) {
       option.renderOptions.after.contentText =
@@ -281,17 +295,8 @@ function getRepo(uri: vscode.Uri) {
   if (!gitApi) return;
   if (uri.scheme !== "file") return;
   const gitRepo = gitApi.getRepository(uri);
-  if (!gitRepo) {
-    log.appendLine(`ERROR: no repo found for file: ${uri}`);
-    return;
-  }
-  const root = gitRepo.rootUri.fsPath;
-  const repo = cache.get(root);
-  if (!repo) {
-    log.appendLine(`ERROR: repo not found in cache: ${root}`);
-    return;
-  }
-  return repo;
+  if (!gitRepo) return;
+  return addRepository(gitRepo);
 }
 
 async function loadBlameForFile(repo: Repository, file: File, path: string) {
@@ -307,11 +312,11 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
       expectSha = false;
       const words = line.split(" ");
       const sha = words[0];
-      const ref = sha === "0000000000000000000000000000000000000000" ? Uncommitted : sha;
+      const ref = sha === "0000000000000000000000000000000000000000" ? uncommitted : sha;
       const start = parseInt(words[2]) - 1;
       const num = parseInt(words[3]);
       for (let i = start; i < start + num; i++) blame[i] = ref;
-      if (ref !== Uncommitted && !repo.commits.has(sha))
+      if (ref !== uncommitted && !repo.commits.has(sha))
         repo.commits.set(sha, commit = {} as Commit);
       else
         commit = undefined;
