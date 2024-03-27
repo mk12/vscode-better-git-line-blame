@@ -37,7 +37,7 @@
         "colors": [
             {
                 "id": "gitlineblame.foregroundColor",
-                "description": "Foreground color of the blame annotation for the current line",
+                "description": "Foreground color of the blame decoration for the current line",
                 "defaults": {
                     "dark": "#99999969",
                     "light": "#99999969",
