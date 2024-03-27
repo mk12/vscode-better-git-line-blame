@@ -1,6 +1,6 @@
 {
     "name": "better-git-line-blame",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "displayName": "Better Git Line Blame",
     "description": "Annotates the current line with git blame information",
     "publisher": "mk12",
@@ -10,6 +10,7 @@
         "type": "git",
         "url": "https://github.com/mk12/vscode-git-line-blame.git"
     },
+    "icon": "icon.png",
     "extensionKind": [
         "workspace"
     ],
