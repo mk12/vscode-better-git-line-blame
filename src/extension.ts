@@ -3,9 +3,6 @@ import * as readline from "readline";
 import * as vscode from "vscode";
 import type * as git from "./git";
 
-const summaryCharLimit = 50;
-const maxLineDecorations = 100;
-
 let log: vscode.LogOutputChannel;
 let blameDecoration: vscode.TextEditorDecorationType;
 let gitApi: git.API;
@@ -45,12 +42,12 @@ interface Commit {
 
 export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    log = vscode.window.createOutputChannel("Git Line Blame", { log: true }),
+    log = vscode.window.createOutputChannel("Better Git Line Blame", { log: true }),
     blameDecoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
       rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
       after: {
-        color: new vscode.ThemeColor("gitlineblame.foregroundColor"),
+        color: new vscode.ThemeColor("betterGitLineBlame.foregroundColor"),
         margin: "0 0 0 3em",
       },
     })
@@ -73,8 +70,8 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidSaveTextDocument(onDidSaveTextDocument),
       vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocument),
       vscode.window.onDidChangeTextEditorSelection(onDidChangeTextEditorSelection),
-      vscode.commands.registerCommand("git-line-blame.clearCache", commandClearCache),
-      vscode.commands.registerTextEditorCommand("git-line-blame.reblameFile", commandReblameFile),
+      vscode.commands.registerCommand("betterGitLineBlame.clearCache", commandClearCache),
+      vscode.commands.registerTextEditorCommand("betterGitLineBlame.reblameFile", commandReblameFile),
     );
     updateEditor(vscode.window.activeTextEditor);
     await Promise.all(
@@ -189,9 +186,11 @@ function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
   }
   // If we added or removed a line, update the editor since it's possible the
   // selection didn't change and onDidChangeTextEditorSelection won't fire.
-  const change = event.contentChanges[0];
-  if (!change.range.isSingleLine || change.text.includes("\n"))
-    updateEditor(vscode.window.activeTextEditor, document);
+  if (event.contentChanges.length !== 0) {
+    const change = event.contentChanges[0];
+    if (!change.range.isSingleLine || change.text.includes("\n"))
+      updateEditor(vscode.window.activeTextEditor, document);
+  }
 }
 
 function processChange(file: File, change: vscode.TextDocumentContentChangeEvent) {
@@ -228,7 +227,9 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   }
   const decorationOptions = [];
   let lastRef = null;
-  const limit = startLine + maxLineDecorations;
+  const configuration = vscode.workspace.getConfiguration("betterGitLineBlame");
+  const maxBlamedLines = configuration.maxBlamedLines === 0 ? Infinity : configuration.maxBlamedLines;
+  const maxSummaryLength = configuration.maxSummaryLength === 0 ? Infinity : configuration.maxSummaryLength;
   const logPromises = [];
   for (let i = startLine; i <= endLine; i++) {
     const ref = file.blame[i];
@@ -241,9 +242,11 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
       },
       hoverMessage: undefined as vscode.MarkdownString[] | undefined,
     };
-    if (i > limit) {
-      option.renderOptions.after.contentText = "(Exceeded git blame limit)";
-      decorationOptions.push(option);
+    if (i >= startLine + maxBlamedLines) {
+      if (maxBlamedLines > 1) {
+        option.renderOptions.after.contentText = "(Exceeded max blamed lines)";
+        decorationOptions.push(option);
+      }
       break;
     }
     let commit;
@@ -259,7 +262,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     } else {
       const who = commit.email === repo.email ? "You" : commit.author;
       const when = friendlyTimestamp(commit.timestamp);
-      option.renderOptions.after.contentText = `${who}, ${when} • ${commit.summary}`;
+      const summary = truncateEllipsis(commit.summary, maxSummaryLength);
+      option.renderOptions.after.contentText = `${who}, ${when} • ${summary}`;
       if (commit.message === undefined) {
         logPromises.push((async () => {
           const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
@@ -357,7 +361,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         commit.timestamp = parseInt(content);
         break;
       case "summary":
-        commit.summary = truncateEllipsis(content.trim(), summaryCharLimit);
+        commit.summary = content.trim();
         break;
       case "previous":
         commit.prevFilename = rootSlash + content.substring(content.indexOf(" ") + 1);
@@ -380,8 +384,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
 }
 
 function gitSpawn(repo: git.Repository, args: string[]) {
-  const fullArgs = ["-C", repo.rootUri.fsPath, ...args];
-  return child_process.spawn(gitApi.git.path, fullArgs);
+  return child_process.spawn(gitApi.git.path, ["-C", repo.rootUri.fsPath, ...args]);
 }
 
 async function gitStdout(repo: git.Repository, args: string[]) {

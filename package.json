@@ -27,17 +27,17 @@
     "contributes": {
         "commands": [
             {
-                "command": "git-line-blame.reblameFile",
-                "title": "Git Line Blame: Reblame File"
+                "command": "betterGitLineBlame.reblameFile",
+                "title": "Better Git Line Blame: Reblame File"
             },
             {
-                "command": "git-line-blame.clearCache",
-                "title": "Git Line Blame: Clear Cache"
+                "command": "betterGitLineBlame.clearCache",
+                "title": "Better Git Line Blame: Clear Cache"
             }
         ],
         "colors": [
             {
-                "id": "gitlineblame.foregroundColor",
+                "id": "betterGitLineBlame.foregroundColor",
                 "description": "Foreground color of the blame annotations for the current line",
                 "defaults": {
                     "dark": "#99999969",
@@ -45,7 +45,22 @@
                     "highContrast": "#99999999"
                 }
             }
-        ]
+        ],
+        "configuration": {
+            "title": "Better Git Line Blame",
+            "properties": {
+                "betterGitLineBlame.maxSummaryLength": {
+                    "type": "number",
+                    "default": 50,
+                    "description": "Maximum length of commit message summaries in line annotations. Summaries longer than this will be truncated with an ellipsis. Set to 0 for no limit."
+                },
+                "betterGitLineBlame.maxBlamedLines": {
+                    "type": "number",
+                    "default": 100,
+                    "description": "Maximum number of selected lines to annotate. Set to 1 to only annotate a single line at a time. Set to 0 for no limit."
+                }
+            }
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run esbuild-base -- --minify",
