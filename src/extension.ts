@@ -24,7 +24,7 @@ interface Repository {
 interface File {
   blame: Ref[] | "untracked"; // refs indexed by 0-based line number
   state: "loading" | "done" | "dirty";
-  wasTracked: boolean;
+  dirtyTracked: boolean;
   pendingChanges: vscode.TextDocumentContentChangeEvent[];
   pendingEditors: Set<vscode.TextEditor>;
 }
@@ -140,10 +140,9 @@ function onDidSaveTextDocument(document: vscode.TextDocument) {
 }
 
 function loadFile(repo: Repository, document: vscode.TextDocument, ...editors: vscode.TextEditor[]) {
-  const file: File = { blame: [], state: "loading", wasTracked: false, pendingChanges: [], pendingEditors: new Set(editors) };
-  const path = document.uri.fsPath;
-  repo.files.set(path, file);
-  if (document.isDirty) file.state = "dirty"; else loadBlameForFile(repo, file, path);
+  const file: File = { blame: [], state: "loading", dirtyTracked: false, pendingChanges: [], pendingEditors: new Set(editors) };
+  repo.files.set(document.uri.fsPath, file);
+  loadBlameForDocument(repo, file, document);
   return file;
 }
 
@@ -153,7 +152,26 @@ function reloadFile(repo: Repository, file: File, document: vscode.TextDocument,
   file.state = "loading";
   file.pendingChanges = [];
   file.pendingEditors = new Set(editors);
-  if (document.isDirty) file.state = "dirty"; else loadBlameForFile(repo, file, document.uri.fsPath);
+  loadBlameForDocument(repo, file, document);
+}
+
+function loadBlameForDocument(repo: Repository, file: File, document: vscode.TextDocument) {
+  const path = document.uri.fsPath;
+  if (!document.isDirty) {
+    loadBlameForFile(repo, file, path);
+    return;
+  }
+  file.state = "dirty";
+  if (file.dirtyTracked) return;
+  const proc = gitSpawn(repo.gitRepo, ["ls-files", "--error-unmatch", path]).on("close", (code) => {
+    if (code === 0) {
+      file.dirtyTracked = true;
+      const active = vscode.window.activeTextEditor;
+      if (active?.document === document) updateEditor(active);
+    } else if (code !== 1) {
+      log.appendLine(`ERROR: ${JSON.stringify(proc.spawnargs)} failed with exit code ${code}`);
+    }
+  });
 }
 
 function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
@@ -229,7 +247,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     }
     let commit;
     if (file.state === "dirty") {
-      if (file.wasTracked) option.renderOptions.after.contentText = "(Save to blame)";
+      if (file.dirtyTracked) option.renderOptions.after.contentText = "(Save to blame)";
     } else if (ref === undefined) {
       if (i !== editor.document.lineCount - 1) option.renderOptions.after.contentText = "Loading blame…";
     } else if (ref === uncommitted) {
@@ -352,9 +370,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   if (code === 128)
     file.blame = "untracked";
   else if (code !== 0)
-    log.appendLine(`ERROR: git blame failed with exit code ${code}`);
-  else
-    file.wasTracked = true;
+    log.appendLine(`ERROR: ${JSON.stringify(proc.spawnargs)} failed with exit code ${code}`)
   file.state = "done";
   for (const change of file.pendingChanges) processChange(file, change);
   file.pendingChanges = [];
