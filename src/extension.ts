@@ -47,6 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     log = vscode.window.createOutputChannel("Git Line Blame", { log: true }),
     blameDecoration = vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
       rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
       after: {
         color: new vscode.ThemeColor("gitlineblame.foregroundColor"),
@@ -146,13 +147,19 @@ function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
   if (!repo) return;
   const document = event.document;
   const file = repo.files.get(document.uri.fsPath);
-  if (file === undefined || file.blame === "untracked") return;
-  if (file.state === "loading")
-    file.pendingChanges.push(...event.contentChanges);
-  else if (file.state === "done")
-    for (const change of event.contentChanges) processChange(file, change);
+  if (file === undefined) return;
+  switch (file.state) {
+    case "loading": file.pendingChanges.push(...event.contentChanges); break;
+    case "done": for (const change of event.contentChanges) processChange(file, change); break;
+    case "dirty": break;
+  }
   const active = vscode.window.activeTextEditor;
-  if (active?.document === event.document) updateEditor(active);
+  if (active?.document === event.document) {
+    const change = event.contentChanges[0];
+    // If we added or removed a line, update the editor since it's possible the
+    // selection didn't change and onDidChangeTextEditorSelection won't fire.
+    if (!change.range.isSingleLine || change.text.includes("\n")) updateEditor(active);
+  }
 }
 
 function processChange(file: File, change: vscode.TextDocumentContentChangeEvent) {
@@ -196,9 +203,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     const ref = file.blame[i];
     if (ref === lastRef) continue;
     lastRef = ref;
-    const end = editor.document.lineAt(i).range.end;
     const option = {
-      range: new vscode.Range(end, end),
+      range: editor.document.lineAt(i).range,
       renderOptions: {
         after: { contentText: undefined as string | undefined },
       },
