@@ -95,9 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { cache.clear(); }
 
-function getConfig() {
-  return vscode.workspace.getConfiguration("betterGitLineBlame");
-}
+function getConfig() { return vscode.workspace.getConfiguration("betterGitLineBlame"); }
 
 function addRepository(gitRepo: git.Repository): Repository {
   const path = gitRepo.rootUri.fsPath;
@@ -231,7 +229,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     repo.files.clear();
     reloadFile(repo, file, editor.document, editor);
   }
-  const decorationOptions = [];
+  const decorationOptions: vscode.DecorationOptions[] = [];
   let lastRef = null;
   const config = getConfig();
   const maxBlamedLines = config.maxBlamedLines === 0 ? Infinity : config.maxBlamedLines;
@@ -293,17 +291,20 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
 }
 
 function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
+  // Prevent automatic mailto link.
+  const email = commit.email.replace("@", "&#64;");
+  const date = isoDate(commit.timestamp);
+  const mainPart = new vscode.MarkdownString(
+    `**${commit.author}** <${email}>, ${when} (${date})\n\n${commit.message}`
+  );
   const command = vscode.Uri.from({
     scheme: "command",
     path: "vscode.diff",
     query: JSON.stringify([gitUri(sha + "~", commit.prevFilename ?? commit.filename), gitUri(sha, commit.filename)]),
   });
-  // Prevent automatic mailto link.
-  const email = commit.email.replace("@", "&#64;");
-  return [
-    trusted(`**${commit.author}** <${email}>, ${when} (${isoDate(commit.timestamp)})\n\n${commit.message}`),
-    trusted(`[Show diff](${command}): ${sha}`),
-  ];
+  const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${sha}`);
+  diffPart.isTrusted = true;
+  return [mainPart, diffPart];
 }
 
 function gitUri(ref: Sha, path: string) {
@@ -312,12 +313,6 @@ function gitUri(ref: Sha, path: string) {
     path: path,
     query: JSON.stringify({ ref, path }),
   });
-}
-
-function trusted(str: string) {
-  const markdown = new vscode.MarkdownString(str);
-  markdown.isTrusted = true;
-  return markdown;
 }
 
 function getRepo(uri: vscode.Uri) {
