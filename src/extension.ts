@@ -118,7 +118,9 @@ function commandClearCache() { for (const repo of cache.values()) repo.files.cle
 function commandReblameFile(editor: vscode.TextEditor) {
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
-  loadFile(repo, editor.document, editor);
+  const file = repo.files.get(editor.document.uri.fsPath);
+  if (file) reloadFile(repo, file, editor.document, editor);
+  else loadFile(repo, editor.document, editor);
   updateEditor(editor);
 }
 
