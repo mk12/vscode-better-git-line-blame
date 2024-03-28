@@ -257,7 +257,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     lastRef = ref;
     let commit;
     if (file.state === "dirty") {
-      if (file.tracked === "yes") option.renderOptions.after.contentText = "(Save to blame)";
+      option.renderOptions.after.contentText = "(Save to blame)";
     } else if (ref === undefined) {
       if (i !== editor.document.lineCount - 1) option.renderOptions.after.contentText = "Loading blame…";
     } else if (ref === uncommitted) {
