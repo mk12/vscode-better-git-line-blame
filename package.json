@@ -49,6 +49,11 @@
         "configuration": {
             "title": "Better Git Line Blame",
             "properties": {
+                "betterGitLineBlame.ignoreWhitespaceChanges": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Ignore whitespace changes when blaming lines, i.e. pass the -w flag to git blame."
+                },
                 "betterGitLineBlame.maxSummaryLength": {
                     "type": "number",
                     "default": 50,

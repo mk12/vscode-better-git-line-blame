@@ -324,7 +324,10 @@ function getRepo(uri: vscode.Uri) {
 
 async function loadBlameForFile(repo: Repository, file: File, path: string) {
   log.appendLine(`loading blame: ${path}`);
-  const proc = gitSpawn(repo.gitRepo, ["blame", "--incremental", "--", path]);
+  const configuration = vscode.workspace.getConfiguration("betterGitLineBlame");
+  const flags = ["--incremental"];
+  if (configuration.ignoreWhitespaceChanges) flags.push("-w");
+  const proc = gitSpawn(repo.gitRepo, ["blame", ...flags, "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
   const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
   let expectSha = true;
