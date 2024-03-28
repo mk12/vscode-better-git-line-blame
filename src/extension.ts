@@ -95,6 +95,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { cache.clear(); }
 
+function getConfig() {
+  return vscode.workspace.getConfiguration("betterGitLineBlame");
+}
+
 function addRepository(gitRepo: git.Repository): Repository {
   const path = gitRepo.rootUri.fsPath;
   const existing = cache.get(path);
@@ -229,9 +233,9 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   }
   const decorationOptions = [];
   let lastRef = null;
-  const configuration = vscode.workspace.getConfiguration("betterGitLineBlame");
-  const maxBlamedLines = configuration.maxBlamedLines === 0 ? Infinity : configuration.maxBlamedLines;
-  const maxSummaryLength = configuration.maxSummaryLength === 0 ? Infinity : configuration.maxSummaryLength;
+  const config = getConfig();
+  const maxBlamedLines = config.maxBlamedLines === 0 ? Infinity : config.maxBlamedLines;
+  const maxSummaryLength = config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength;
   const logPromises = [];
   for (let i = startLine; i <= endLine; i++) {
     const option = {
@@ -326,9 +330,8 @@ function getRepo(uri: vscode.Uri) {
 
 async function loadBlameForFile(repo: Repository, file: File, path: string) {
   log.appendLine(`loading blame: ${path}`);
-  const configuration = vscode.workspace.getConfiguration("betterGitLineBlame");
   const flags = ["--incremental"];
-  if (configuration.ignoreWhitespaceChanges) flags.push("-w");
+  if (getConfig().ignoreWhitespaceChanges) flags.push("-w");
   const proc = gitSpawn(repo.gitRepo, ["blame", ...flags, "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
   const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
