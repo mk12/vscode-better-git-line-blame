@@ -234,9 +234,6 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const maxSummaryLength = configuration.maxSummaryLength === 0 ? Infinity : configuration.maxSummaryLength;
   const logPromises = [];
   for (let i = startLine; i <= endLine; i++) {
-    const ref = file.blame[i];
-    if (ref === lastRef) continue;
-    lastRef = ref;
     const option = {
       range: editor.document.lineAt(i).range,
       renderOptions: {
@@ -251,6 +248,9 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
       }
       break;
     }
+    const ref = file.blame[i];
+    if (ref === lastRef) continue;
+    lastRef = ref;
     let commit;
     if (file.state === "dirty") {
       if (file.tracked === "yes") option.renderOptions.after.contentText = "(Save to blame)";
