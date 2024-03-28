@@ -5,10 +5,10 @@
     "description": "Annotates the current line with git blame information",
     "publisher": "mk12",
     "license": "MIT",
-    "homepage": "https://github.com/mk12/vscode-git-line-blame",
+    "homepage": "https://github.com/mk12/vscode-better-git-line-blame",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mk12/vscode-git-line-blame.git"
+        "url": "https://github.com/mk12/vscode-better-git-line-blame.git"
     },
     "icon": "icon.png",
     "extensionKind": [
