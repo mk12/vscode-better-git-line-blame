@@ -2,7 +2,7 @@
 
 A simple VS Code extension that annotates the current line with git blame information.
 
-I created this extension because I find [GitLens] too bloated. Line blaming is the only feature that I actually need.
+It's like the [GitLens] line annotation feature, but much faster.
 
 ## Install
 
@@ -10,7 +10,7 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 
 ## Features
 
-- Displays line annotations in the same style as GitLens.
+- Displays line annotations in the same style as GitLens (but much faster).
 - Annotates all lines at once when selecting multiple lines.
 - On hover, shows the commit author, date, message, and SHA.
 - Includes a "Show diff" link using VS Code's built-in diff viewer.
@@ -36,9 +36,9 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 
 ## Alternatives
 
-The alternative I'm competing with is [GitLens]. I find it too bloated, and dislike how it pushes paid features.
+The alternative I'm competing with is [GitLens]. I find it too bloated, and dislike how it pushes paid features. Line blaming is all I need.
 
-Someone else had the exact same idea with [carlthome/vscode-git-line-blame](https://github.com/carlthome/vscode-git-line-blame). However, as of March 2024, that extension is much simpler: it spawns a git process every time the cursor moves.
+Someone else had the exact same idea with [carlthome/vscode-git-line-blame](https://github.com/carlthome/vscode-git-line-blame). However, as of March 2024, that extension is much simpler: it spawns a git process every time the text cursor moves.
 
 ## License
 
