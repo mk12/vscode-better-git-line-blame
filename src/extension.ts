@@ -139,7 +139,7 @@ function onDidSaveTextDocument(document: vscode.TextDocument) {
   const file = repo.files.get(document.uri.fsPath);
   if (!file) return;
   if (file.tracked === "no") return;
-  if (file.state === "dirty") reloadFile(repo, file, document);
+  if (file.state === "dirty" || getConfig().reblameOnSave) reloadFile(repo, file, document);
   updateEditor(vscode.window.activeTextEditor, document);
 }
 

@@ -21,6 +21,19 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 - Handles untracked files, unsaved edits, and git branch changes.
 - Provides "Reblame File" and "Clear Cache" commands (rarely needed).
 
+## Configuration
+
+- **betterGitLineBlame.ignoreWhitespaceChanges** (default: true)
+    - Ignore whitespace changes when blaming lines, i.e. pass the `-w` flag to git blame.
+- **betterGitLineBlame.reblameOnSave** (default: false)
+    - Run the "Reblame File" command automatically on save. The extension already adapts the blame to local edits, and reblames on git branch changes, so this is not necessary. However, reblaming more often ensures that "Uncommitted changes" is only shown on lines with a diff, not on changes that you later undid.
+- **betterGitLineBlame.maxSummaryLength** (default: 50)
+    - Maximum length of commit message summaries in line annotations. Summaries longer than this will be truncated with an ellipsis. Set to 0 for no limit.
+- **betterGitLineBlame.maxBlamedLines** (default: 100)
+    - Maximum number of selected lines to annotate. Set to 1 to only annotate a single line at a time. Set to 0 for no limit.
+- **workbench.colorCustomizations** > **betterGitLineBlame.foregroundColor**
+    - Foreground color of the line blame annotations.
+
 ## Alternatives
 
 The alternative I'm competing with is [GitLens]. I find it too bloated, and dislike how it pushes paid features.

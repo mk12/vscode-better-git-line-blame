@@ -38,7 +38,7 @@
         "colors": [
             {
                 "id": "betterGitLineBlame.foregroundColor",
-                "description": "Foreground color of the blame annotations for the current line",
+                "description": "Foreground color of the line blame annotations",
                 "defaults": {
                     "dark": "#99999969",
                     "light": "#99999969",
@@ -53,6 +53,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Ignore whitespace changes when blaming lines, i.e. pass the -w flag to git blame."
+                },
+                "betterGitLineBlame.reblameOnSave": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run the \"Reblame File\" command automatically on save. The extension already adapts the blame to local edits, and reblames on git branch changes, so this is not necessary. However, reblaming more often ensures that \"Uncommitted changes\" is only shown on lines with a diff, not on changes that you later undid."
                 },
                 "betterGitLineBlame.maxSummaryLength": {
                     "type": "number",
