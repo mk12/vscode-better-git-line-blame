@@ -18,18 +18,40 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 - Uses `git blame --incremental` to provide blame quickly and incrementally.
 - Loads commit message lazily without blocking blame annotation rendering.
 - Handles untracked files, unsaved edits, and git branch changes.
-- Provides "Reblame File" and "Clear Cache" commands (rarely needed).
+
+## Commands
+
+- **Better Git Line Blame: Toggle Inline Annotations**
+    - Toggles the betterGitLineBlame.showInlineAnnotations configuration.
+- **Better Git Line Blame: Toggle Status Bar Item**
+    - Toggles the betterGitLineBlame.showStatusBarItem configuration.
+- **Better Git Line Blame: Reblame File**
+    - Reruns git blame on the current file.
+- **Better Git Line Blame: Clear Cache**
+    - Clear all cached git blame data.
 
 ## Configuration
 
+- **betterGitLineBlame.showInlineAnnotations** (default: true)
+    - Show git blame information as inline annotations. Hover on the annotations to see more details.
+- **betterGitLineBlame.showStatusBarItem** (default: false)
+    - Show git blame information in the status bar. Click on the status bar item to see more details.
 - **betterGitLineBlame.ignoreWhitespaceChanges** (default: true)
     - Ignore whitespace changes when blaming lines, i.e. pass the `-w` flag to git blame.
 - **betterGitLineBlame.reblameOnSave** (default: false)
-    - Run the "Reblame File" command automatically on save. The extension already adapts the blame to local edits, and reblames on git branch changes, so this is not necessary. However, reblaming more often ensures that "Uncommitted changes" is only shown on lines with a diff, not on changes that you later undid.
+    - Run the "Reblame File" command automatically on save.
 - **betterGitLineBlame.maxSummaryLength** (default: 50)
     - Maximum length of commit message summaries in line annotations. Summaries longer than this will be truncated with an ellipsis. Set to 0 for no limit.
 - **workbench.colorCustomizations** > **betterGitLineBlame.foregroundColor**
-    - Foreground color of the line blame annotations.
+    - Foreground color of the inline blame annotations.
+
+## FAQ
+
+### Do I need to reblame?
+
+Only if you're seeing "Uncommited changes" on lines with no diff.
+
+The extension keeps track of local edits, and reblames on git HEAD changes, so you don't normally need to run the "Reblame File" command or use the betterGitLineBlame.reblameOnSave configuration. However, if you change a line and then later undo it, the annotation will still be "Uncomitted changes". If you want to see the original commit, you need to reblame.
 
 ## Alternatives
 
