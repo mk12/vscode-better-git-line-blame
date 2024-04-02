@@ -120,15 +120,13 @@ function commandClearCache() { for (const repo of cache.values()) repo.files.cle
 function commandReblameFile(editor: vscode.TextEditor) {
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
-  const file = repo.files.get(editor.document.uri.fsPath);
-  if (file) reloadFile(repo, file, editor.document, editor);
-  else loadFile(repo, editor.document, editor);
+  loadFile(repo, editor, { force: true });
   updateEditor(editor);
 }
 
 function onDidOpenTextDocument(document: vscode.TextDocument) {
   const repo = getRepo(document.uri);
-  if (repo && !repo.files.has(document.uri.fsPath)) loadFile(repo, document);
+  if (repo) loadFile(repo, document);
 }
 
 function onDidSaveTextDocument(document: vscode.TextDocument) {
@@ -137,24 +135,28 @@ function onDidSaveTextDocument(document: vscode.TextDocument) {
   const file = repo.files.get(document.uri.fsPath);
   if (!file) return;
   if (file.tracked === "no") return;
-  if (file.state === "dirty" || getConfig().reblameOnSave) reloadFile(repo, file, document);
+  if (file.state === "dirty" || getConfig().reblameOnSave) loadFile(repo, document, { force: true });
   updateEditor(vscode.window.activeTextEditor, document);
 }
 
-function loadFile(repo: Repository, document: vscode.TextDocument, ...editors: vscode.TextEditor[]) {
-  const file: File = { state: "loading", tracked: "unknown", blame: [], pendingChanges: [], pendingEditors: new Set(editors) };
-  repo.files.set(document.uri.fsPath, file);
-  loadBlameForDocument(repo, file, document);
-  return file;
-}
-
-function reloadFile(repo: Repository, file: File, document: vscode.TextDocument, ...editors: vscode.TextEditor[]) {
-  if (file.state === "loading") return;
+function loadFile(repo: Repository, editorOrDocument: vscode.TextEditor | vscode.TextDocument, options?: { force?: boolean, reuse?: File }) {
+  const isEditor = "document" in editorOrDocument;
+  const document = isEditor ? editorOrDocument.document : editorOrDocument;
+  const path = document.uri.fsPath;
+  let file = repo.files.get(path);
+  if (file) {
+    if (!options?.force || file.state === "loading") return file;
+  } else {
+    file = { tracked: "unknown" } as File;
+  }
   file.state = "loading";
   file.blame = [];
   file.pendingChanges = [];
-  file.pendingEditors = new Set(editors);
+  file.pendingEditors = new Set();
+  if (isEditor) file.pendingEditors.add(editorOrDocument);
+  repo.files.set(path, file);
   loadBlameForDocument(repo, file, document);
+  return file;
 }
 
 function loadBlameForDocument(repo: Repository, file: File, document: vscode.TextDocument) {
@@ -217,16 +219,16 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
-  const file = repo.files.get(editor.document.uri.fsPath) ?? loadFile(repo, editor.document, editor);
+  const file = loadFile(repo, editor);
+  if (file.state === "loading") file.pendingEditors.add(editor);
   const actualHead = repo.gitRepo.state.HEAD?.commit;
   if (repo.head !== actualHead) {
     const newHead = actualHead ?? uncommitted;
     log.appendLine(`${repo.gitRepo.rootUri.fsPath}: detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
     repo.head = newHead;
     repo.files.clear();
-    reloadFile(repo, file, editor.document, editor);
+    loadFile(repo, editor, { reuse: file });
   }
-  if (file.state === "loading") file.pendingEditors.add(editor);
   const updateId = (editorUpdateId.get(editor) ?? 0) + 1;
   editorUpdateId.set(editor, updateId);
   const line = event.selections[0].start.line;
