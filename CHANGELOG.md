@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Only blame one line at a time. Originally I thought it was be cool to blame all selected lines at once, but I've changed my mind. I never seem to use it, and when I try it, it's noisy and hard to read because they're not aligned with each other. I would consider implementing a full file blame feature that opens in a side bar.
+- Remove the obsolete configuration `betterGitLineBlame.maxBlamedLines`.
+
 ## 0.1.1
 
 - Updated README and did minor refactors.

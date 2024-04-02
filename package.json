@@ -27,6 +27,14 @@
     "contributes": {
         "commands": [
             {
+                "command": "betterGitLineBlame.toggleInlineAnnotations",
+                "title": "Toggle Inline Annotations"
+            },
+            {
+                "command": "betterGitLineBlame.toggleStatusBarItem",
+                "title": "Toggle Status Bar Item"
+            },
+            {
                 "command": "betterGitLineBlame.reblameFile",
                 "title": "Better Git Line Blame: Reblame File"
             },
@@ -49,6 +57,16 @@
         "configuration": {
             "title": "Better Git Line Blame",
             "properties": {
+                "betterGitLineBlame.showInlineAnnotations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show git blame information as inline annotations. Hover on the annotations to see more details."
+                },
+                "betterGitLineBlame.showStatusBarItem": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show git blame information in the status bar. Click on the status bar item to see more details."
+                },
                 "betterGitLineBlame.ignoreWhitespaceChanges": {
                     "type": "boolean",
                     "default": true,
@@ -63,11 +81,6 @@
                     "type": "number",
                     "default": 50,
                     "description": "Maximum length of commit message summaries in line annotations. Summaries longer than this will be truncated with an ellipsis. Set to 0 for no limit."
-                },
-                "betterGitLineBlame.maxBlamedLines": {
-                    "type": "number",
-                    "default": 100,
-                    "description": "Maximum number of selected lines to annotate. Set to 1 to only annotate a single line at a time. Set to 0 for no limit."
                 }
             }
         }

@@ -14,7 +14,6 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 - Caches blame data so annotations are instantaneous.
 - On hover, shows the commit author, date, message, and SHA.
 - Includes a "Show diff" link using VS Code's built-in diff viewer.
-- Annotates all lines in a selection at once (configurable).
 - Supports multiple git repositories in the same workspace.
 - Uses `git blame --incremental` to provide blame quickly and incrementally.
 - Loads commit message lazily without blocking blame annotation rendering.
@@ -29,8 +28,6 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Run the "Reblame File" command automatically on save. The extension already adapts the blame to local edits, and reblames on git branch changes, so this is not necessary. However, reblaming more often ensures that "Uncommitted changes" is only shown on lines with a diff, not on changes that you later undid.
 - **betterGitLineBlame.maxSummaryLength** (default: 50)
     - Maximum length of commit message summaries in line annotations. Summaries longer than this will be truncated with an ellipsis. Set to 0 for no limit.
-- **betterGitLineBlame.maxBlamedLines** (default: 100)
-    - Maximum number of selected lines to annotate. Set to 1 to only annotate a single line at a time. Set to 0 for no limit.
 - **workbench.colorCustomizations** > **betterGitLineBlame.foregroundColor**
     - Foreground color of the line blame annotations.
 

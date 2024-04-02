@@ -218,9 +218,6 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const repo = getRepo(editor.document.uri);
   if (!repo) return;
   const file = repo.files.get(editor.document.uri.fsPath) ?? loadFile(repo, editor.document, editor);
-  if (file.tracked !== "yes") return editor.setDecorations(blameDecoration, []);
-  const startLine = event.selections[0].start.line;
-  const endLine = event.selections[0].end.line;
   const actualHead = repo.gitRepo.state.HEAD?.commit;
   if (repo.head !== actualHead) {
     const newHead = actualHead ?? uncommitted;
@@ -229,65 +226,55 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     repo.files.clear();
     reloadFile(repo, file, editor.document, editor);
   }
-  const decorationOptions: vscode.DecorationOptions[] = [];
-  let lastRef = null;
-  const config = getConfig();
-  const maxBlamedLines = config.maxBlamedLines === 0 ? Infinity : config.maxBlamedLines;
-  const maxSummaryLength = config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength;
-  const logPromises = [];
-  for (let i = startLine; i <= endLine; i++) {
-    const option = {
-      range: editor.document.lineAt(i).range,
-      renderOptions: {
-        after: { contentText: undefined as string | undefined },
-      },
-      hoverMessage: undefined as vscode.MarkdownString[] | undefined,
-    };
-    if (i >= startLine + maxBlamedLines) {
-      if (maxBlamedLines > 1) {
-        option.renderOptions.after.contentText = "(Exceeded max blamed lines)";
-        decorationOptions.push(option);
-      }
-      break;
-    }
-    const ref = file.blame[i];
-    if (ref === lastRef) continue;
-    lastRef = ref;
-    let commit;
-    if (file.state === "dirty") {
-      option.renderOptions.after.contentText = "(Save to blame)";
-    } else if (ref === undefined) {
-      if (i !== editor.document.lineCount - 1) option.renderOptions.after.contentText = "Loading blame…";
-    } else if (ref === uncommitted) {
-      option.renderOptions.after.contentText = "You • Uncommitted changes";
-    } else if ((commit = repo.commits.get(ref)) === undefined) {
-      option.renderOptions.after.contentText =
-        "(Failed to get git blame information)";
-    } else {
-      const who = commit.email === repo.email ? "You" : commit.author;
-      const when = friendlyTimestamp(commit.timestamp);
-      const summary = truncateEllipsis(commit.summary, maxSummaryLength);
-      option.renderOptions.after.contentText = `${who}, ${when} • ${summary}`;
-      if (commit.message === undefined) {
-        logPromises.push((async () => {
-          const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
-          // Convert to hard line breaks for Markdown.
-          commit.message = rawMessage.replace(/\n/g, "  \n");
-          option.hoverMessage = buildHoverMessage(ref, commit, when);
-        })());
-      } else {
-        option.hoverMessage = buildHoverMessage(ref, commit, when);
-      }
-    }
-    decorationOptions.push(option);
-  }
   if (file.state === "loading") file.pendingEditors.add(editor);
-  editor.setDecorations(blameDecoration, decorationOptions);
   const updateId = (editorUpdateId.get(editor) ?? 0) + 1;
   editorUpdateId.set(editor, updateId);
-  await Promise.all(logPromises);
-  if (logPromises.length !== 0 && editorUpdateId.get(editor) === updateId)
-    editor.setDecorations(blameDecoration, decorationOptions);
+  const line = event.selections[0].start.line;
+  const range = editor.document.lineAt(line).range;
+  const decoration = buildDecoration(editor.document, repo, file, line);
+  editor.setDecorations(blameDecoration, toDecorationOptions(range, decoration));
+  if (decoration?.hoverLoaded !== undefined) {
+    await decoration.hoverLoaded;
+    if (editorUpdateId.get(editor) === updateId)
+      editor.setDecorations(blameDecoration, toDecorationOptions(range, decoration));
+  }
+}
+
+interface Decoration {
+  text: string,
+  hoverLoaded?: Promise<void>,
+  hover?: vscode.MarkdownString[],
+}
+
+function buildDecoration(document: vscode.TextDocument, repo: Repository, file: File, line: number): Decoration | undefined {
+  if (file.tracked !== "yes") return undefined;
+  if (file.state === "dirty") return { text: "(Save to blame)" };
+  const ref = file.blame[line];
+  if (ref === undefined) return line === document.lineCount - 1 ? undefined : { text: "Loading blame…" };
+  if (ref === uncommitted) return { text: "You • Uncommitted changes" };
+  const commit = repo.commits.get(ref);
+  if (commit === undefined) return { text: "(Failed to blame)" };
+  const who = commit.email === repo.email ? "You" : commit.author;
+  const when = friendlyTimestamp(commit.timestamp);
+  const config = getConfig();
+  const summary = truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength);
+  const decoration: Decoration = { text: `${who}, ${when} • ${summary}` };
+  if (commit.message === undefined) {
+    decoration.hoverLoaded = (async () => {
+      const rawMessage = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
+      // Convert to hard line breaks for Markdown.
+      commit.message = rawMessage.replace(/\n/g, "  \n");
+      decoration.hover = buildHoverMessage(ref, commit, when);
+    })();
+  } else {
+    decoration.hover = buildHoverMessage(ref, commit, when);
+  }
+  return decoration;
+}
+
+function toDecorationOptions(range: vscode.Range, decoration?: Decoration): vscode.DecorationOptions[] {
+  if (decoration === undefined) return [];
+  return [{ range, renderOptions: { after: { contentText: decoration.text } }, hoverMessage: decoration.hover }];
 }
 
 function buildHoverMessage(sha: Sha, commit: Commit, when: string) {
