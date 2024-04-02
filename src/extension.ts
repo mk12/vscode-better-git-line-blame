@@ -404,16 +404,16 @@ function friendlyTimestamp(timestamp: number) {
   if (h < 1.5) return "an hour ago";
   const d = h / 24;
   if (d < 1) return Math.round(h) + " hours ago";
-  if (d < 1.5) return "yesterday";
+  if (d < 1.5) return "a day ago";
   const w = d / 7;
   if (w < 1) return Math.round(d) + " days ago";
-  if (w < 1.5) return "last week";
+  if (w < 1.5) return "a week ago";
   const mm = w / 4.3333333333;
   if (mm < 1) return Math.round(w) + " weeks ago";
-  if (mm < 1.5) return "last month";
+  if (mm < 1.5) return "a month ago";
   const y = d / 365.25;
   if (y < 1) return Math.round(mm) + " months ago";
-  if (y < 1.5) return "last year";
+  if (y < 1.5) return "a year ago";
   return Math.round(y) + " years ago";
 }
 
