@@ -26,6 +26,10 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Toggle betterGitLineBlame.showInlineAnnotations in your user settings file.
 - **Better Git Line Blame: Toggle Status Bar Item**
     - Toggle betterGitLineBlame.showStatusBarItem in your user settings file.
+- **Better Git Line Blame: Show Commit**
+    - Show the commit message in a separate editor. Same as clicking on the status bar item.
+- **Better Git Line Blame: Show Diff**
+    - Show the current file's diff for the current line's blame commit. Same as the "Show diff" link in the hover panel.
 - **Better Git Line Blame: Reblame File**
     - Rerun git blame on the current file.
 - **Better Git Line Blame: Clear Cache**

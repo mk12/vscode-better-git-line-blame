@@ -63,10 +63,11 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocument),
       vscode.window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor),
       vscode.window.onDidChangeTextEditorSelection(onDidChangeTextEditorSelection),
-      vscode.commands.registerCommand("betterGitLineBlame.showCommitMessage", commandShowCommitMessage),
       vscode.workspace.registerTextDocumentContentProvider("better-git-line-blame-commit", new CommitMessageProvider()),
       vscode.commands.registerCommand("betterGitLineBlame.toggleInlineAnnotations", commandToggleInlineAnnotations),
       vscode.commands.registerCommand("betterGitLineBlame.toggleStatusBarItem", commandToggleStatusBarItem),
+      vscode.commands.registerCommand("betterGitLineBlame.showCommit", commandShowCommit),
+      vscode.commands.registerCommand("betterGitLineBlame.showDiff", commandShowDiff),
       vscode.commands.registerCommand("betterGitLineBlame.clearCache", commandClearCache),
       vscode.commands.registerTextEditorCommand("betterGitLineBlame.reblameFile", commandReblameFile),
     );
@@ -115,8 +116,15 @@ function getDecorationType(config: vscode.WorkspaceConfiguration) {
 }
 
 function getStatusBarItem(config: vscode.WorkspaceConfiguration) {
-  return getResource(config, "showStatusBarItem", () =>
-    vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, config.get("statusBarItemPriority")));
+  return getResource(config, "showStatusBarItem", () => {
+    const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, config.get("statusBarItemPriority"));
+    item.tooltip = "Show Commit Message";
+    item.command = {
+      title: "Better Git Line Blame: Show Commit Message",
+      command: "betterGitLineBlame.showCommit",
+    };
+    return item;
+  });
 }
 
 const resources: Record<string, vscode.Disposable> = {};
@@ -264,6 +272,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) {
+    lastCommitInfo = undefined;
     if (statusBarItem) {
       if (editor.document.uri.scheme === "file") updateStatusBarItem(statusBarItem, undefined);
       else statusBarItem.hide();
@@ -283,6 +292,7 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const line = event.selections[0].start.line;
   const range = editor.document.lineAt(line).range;
   const info = getCommitInfo(editor.document, repo, file, line, config);
+  lastCommitInfo = info;
   if (decorationType) updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
   if (statusBarItem) updateAsync("status", info, () => updateStatusBarItem(statusBarItem, info));
 }
@@ -311,59 +321,62 @@ function updateDecoration(editor: vscode.TextEditor, range: vscode.Range, type: 
 }
 
 function updateStatusBarItem(item: vscode.StatusBarItem, info?: CommitInfo) {
-  let text, tooltip;
+  let text;
   switch (info?.state) {
-    case undefined: text = "No Repo"; tooltip = "This file is not in an open git repository"; break;
-    case "untracked": text = "Untracked"; tooltip = "This file is not tracked by git"; break;
-    case "uncommitted": text = "You, uncommited"; tooltip = "The current line has uncommitted changes"; break;
-    case "dirty": text = "Save to blame"; tooltip = "Save the file to show git blame information"; break;
-    case "loading": text = "Loading"; tooltip = "Git blame information is loading"; break;
-    case "failed": text = "Failed"; tooltip = "Failed to load blame the file"; break;
-    case "commit": text = `${info.who}, ${info.when}`; tooltip = "Show Commit Message"; break;
+    case undefined: text = "No Repo"; break;
+    case "untracked": text = "Untracked"; break;
+    case "uncommitted": text = "You, uncommited"; break;
+    case "dirty": text = "Save to blame"; break;
+    case "loading": text = "Loading"; break;
+    case "failed": text = "Failed"; break;
+    case "commit": text = `${info.who}, ${info.when}`; break;
   }
   item.text = "$(git-commit) " + text;
-  item.tooltip = tooltip;
-  item.command = info?.state !== "commit" ? undefined : {
-    title: "Better Git Line Blame: Show Commit Message",
-    command: "betterGitLineBlame.showCommitMessage",
-    arguments: [info],
-  };
   item.show();
 }
 
-let lastCommitInfo: CommitInfoFull;
-async function commandShowCommitMessage(info: CommitInfoFull) {
-  lastCommitInfo = info;
+function commandShowCommit() {
+  const info = getFullCommitInfo();
+  if (!info) return;
   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
-  const document = await vscode.workspace.openTextDocument(uri);
-  await vscode.languages.setTextDocumentLanguage(document, "markdown");
-  await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
-  //   const md = `\
-  // **commit** ${info.sha}\\
-  // **Author:** ${commit.author} &lt;${commit.email}&gt;\\
-  // **Date:** ${isoDateAndTime(commit.timestamp)}
-
-  // ${commit.message}`;
-  //   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
-  //   const document = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
-  //   vscode.window.showTextDocument(document);
-  // await vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
-  // const document = await vscode.workspace.openTextDocument({ language: "markdown", content: decoration.hover[0].value });
-  // await vscode.commands.executeCommand("markdown.showPreview", document.uri);
+  vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
 }
 
+function commandShowDiff() {
+  const info = getFullCommitInfo();
+  if (!info) return;
+  vscode.commands.executeCommand("vscode.diff", ...info.diffArgs);
+}
+
+function getFullCommitInfo(): CommitInfoFull | undefined {
+  if (lastCommitInfo === undefined) {
+    vscode.window.showErrorMessage("This file is not in an open git repository");
+    return;
+  }
+  switch (lastCommitInfo.state) {
+    case "untracked": vscode.window.showInformationMessage("This file is not tracked by git"); break;
+    case "uncommitted": vscode.window.showInformationMessage("The current line has uncommitted changes"); break;
+    case "dirty": vscode.window.showErrorMessage("Please save the file and try again"); break;
+    case "loading": vscode.window.showErrorMessage("The blame is still loading"); break;
+    case "failed": vscode.window.showErrorMessage("Failed to blame the file"); break;
+    case "commit": return lastCommitInfo;
+  }
+}
+
+let lastCommitInfo: CommitInfo | undefined;
 class CommitMessageProvider implements vscode.TextDocumentContentProvider {
-  provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
+  provideTextDocumentContent(uri: vscode.Uri): vscode.ProviderResult<string> {
     const info = lastCommitInfo;
+    if (info === undefined) return `Cannot load commit message for ${uri.path}: not found`;
+    if (info.state !== "commit") return `Cannot load commit message for ${uri.path}: state is ${info.state}`;
+    if (uri.path !== info.sha) return `Cannot load commit message for ${uri.path}: SHA mismatch`;
     const commit = info.commit;
     return `\
-**Commit:** ${info.sha}
-**Author:** ${commit.author} <${commit.email}>
-**Date:**   ${isoDateAndTime(commit.timestamp)}
+**Commit:** ${info.sha}\\
+**Author:** ${commit.author} &lt;${commit.email}&gt;\\
+**Date:** ${isoDateAndTime(commit.timestamp)}
 
-${commit.message}
-
-[Show diff](${info.diffCommand})`;
+${commit.message}`;
   }
 }
 
@@ -375,7 +388,7 @@ interface CommitInfoFull {
   summary: string,
   sha: Sha,
   commit: Commit,
-  diffCommand: vscode.Uri,
+  diffArgs: vscode.Uri[],
   loadedMessage?: Promise<void>,
 }
 
@@ -394,11 +407,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     who: commit.email === repo.email ? "You" : commit.email,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
-    diffCommand: vscode.Uri.from({
-      scheme: "command",
-      path: "vscode.diff",
-      query: JSON.stringify([gitUri(ref + "~", commit.prevFilename ?? commit.filename), gitUri(ref, commit.filename)]),
-    }),
+    diffArgs: [gitUri(ref + "~", commit.prevFilename ?? commit.filename), gitUri(ref, commit.filename)],
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
@@ -420,7 +429,8 @@ function buildHoverMessage(info: CommitInfo) {
   const mainPart = new vscode.MarkdownString(
     `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${commit.message}`
   );
-  const diffPart = new vscode.MarkdownString(`[Show diff](${info.diffCommand}): ${info.sha}`);
+  const command = vscode.Uri.from({ scheme: "command", path: "vscode.diff", query: JSON.stringify(info.diffArgs) });
+  const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
   diffPart.isTrusted = true;
   return [mainPart, diffPart];
 }

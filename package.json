@@ -35,6 +35,14 @@
                 "title": "Better Git Line Blame: Toggle Status Bar Item"
             },
             {
+                "command": "betterGitLineBlame.showCommit",
+                "title": "Better Git Line Blame: Show Commit"
+            },
+            {
+                "command": "betterGitLineBlame.showDiff",
+                "title": "Better Git Line Blame: Show Diff"
+            },
+            {
                 "command": "betterGitLineBlame.reblameFile",
                 "title": "Better Git Line Blame: Reblame File"
             },
