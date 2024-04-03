@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix bug where annotations and status bar item showed email instead of name.
+
 ## 0.2.0
 
 - Added the ability to show a status bar item instead (or in addition to) the line annotations.
