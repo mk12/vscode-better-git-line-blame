@@ -335,7 +335,19 @@ let lastCommitInfo: CommitInfoFull;
 async function commandShowCommitMessage(info: CommitInfoFull) {
   lastCommitInfo = info;
   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
-  await vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+  const document = await vscode.workspace.openTextDocument(uri);
+  await vscode.languages.setTextDocumentLanguage(document, "markdown");
+  await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
+  //   const md = `\
+  // **commit** ${info.sha}\\
+  // **Author:** ${commit.author} &lt;${commit.email}&gt;\\
+  // **Date:** ${isoDateAndTime(commit.timestamp)}
+
+  // ${commit.message}`;
+  //   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
+  //   const document = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
+  //   vscode.window.showTextDocument(document);
+  // await vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
   // const document = await vscode.workspace.openTextDocument({ language: "markdown", content: decoration.hover[0].value });
   // await vscode.commands.executeCommand("markdown.showPreview", document.uri);
 }
@@ -345,11 +357,13 @@ class CommitMessageProvider implements vscode.TextDocumentContentProvider {
     const info = lastCommitInfo;
     const commit = info.commit;
     return `\
-**commit** ${info.sha}\\
-**Author:** ${commit.author} &lt;${commit.email}&gt;\\
-**Date:** ${isoTimetstamp(commit.timestamp)}
+**Commit:** ${info.sha}
+**Author:** ${commit.author} <${commit.email}>
+**Date:**   ${isoDateAndTime(commit.timestamp)}
 
-${commit.message}`;
+${commit.message}
+
+[Show diff](${info.diffCommand})`;
   }
 }
 
@@ -361,6 +375,7 @@ interface CommitInfoFull {
   summary: string,
   sha: Sha,
   commit: Commit,
+  diffCommand: vscode.Uri,
   loadedMessage?: Promise<void>,
 }
 
@@ -379,6 +394,11 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     who: commit.email === repo.email ? "You" : commit.email,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
+    diffCommand: vscode.Uri.from({
+      scheme: "command",
+      path: "vscode.diff",
+      query: JSON.stringify([gitUri(ref + "~", commit.prevFilename ?? commit.filename), gitUri(ref, commit.filename)]),
+    }),
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
@@ -400,12 +420,7 @@ function buildHoverMessage(info: CommitInfo) {
   const mainPart = new vscode.MarkdownString(
     `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${commit.message}`
   );
-  const command = vscode.Uri.from({
-    scheme: "command",
-    path: "vscode.diff",
-    query: JSON.stringify([gitUri(info.sha + "~", commit.prevFilename ?? commit.filename), gitUri(info.sha, commit.filename)]),
-  });
-  const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
+  const diffPart = new vscode.MarkdownString(`[Show diff](${info.diffCommand}): ${info.sha}`);
   diffPart.isTrusted = true;
   return [mainPart, diffPart];
 }
@@ -503,7 +518,7 @@ function isoDate(timestamp: number) {
   return new Date(timestamp * 1000).toLocaleString(undefined, { dateStyle: "medium" });
 }
 
-function isoTimetstamp(timestamp: number) {
+function isoDateAndTime(timestamp: number) {
   return new Date(timestamp * 1000).toLocaleString(undefined, { dateStyle: "long", timeStyle: "long" });
 }
 
