@@ -11,6 +11,7 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 ## Features
 
 - Displays line annotations in the same style as GitLens.
+- Optionally shows blame information in the status bar.
 - Caches blame data so annotations are instantaneous.
 - On hover, shows the commit author, date, message, and SHA.
 - Includes a "Show diff" link using VS Code's built-in diff viewer.
@@ -22,11 +23,11 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 ## Commands
 
 - **Better Git Line Blame: Toggle Inline Annotations**
-    - Toggles the betterGitLineBlame.showInlineAnnotations configuration.
+    - Toggle betterGitLineBlame.showInlineAnnotations in your user settings file.
 - **Better Git Line Blame: Toggle Status Bar Item**
-    - Toggles the betterGitLineBlame.showStatusBarItem configuration.
+    - Toggle betterGitLineBlame.showStatusBarItem in your user settings file.
 - **Better Git Line Blame: Reblame File**
-    - Reruns git blame on the current file.
+    - Rerun git blame on the current file.
 - **Better Git Line Blame: Clear Cache**
     - Clear all cached git blame data.
 
@@ -36,6 +37,8 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Show git blame information as inline annotations. Hover on the annotations to see more details.
 - **betterGitLineBlame.showStatusBarItem** (default: false)
     - Show git blame information in the status bar. Click on the status bar item to see more details.
+- **betterGitLineBlame.statusBarItemPriority** (default: 500)
+    - Priority of the status bar item. Items are ordered from highest to lowest priority, left to right.
 - **betterGitLineBlame.ignoreWhitespaceChanges** (default: true)
     - Ignore whitespace changes when blaming lines, i.e. pass the `-w` flag to git blame.
 - **betterGitLineBlame.reblameOnSave** (default: false)

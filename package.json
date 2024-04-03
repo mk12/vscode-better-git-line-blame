@@ -28,11 +28,11 @@
         "commands": [
             {
                 "command": "betterGitLineBlame.toggleInlineAnnotations",
-                "title": "Toggle Inline Annotations"
+                "title": "Better Git Line Blame: Toggle Inline Annotations"
             },
             {
                 "command": "betterGitLineBlame.toggleStatusBarItem",
-                "title": "Toggle Status Bar Item"
+                "title": "Better Git Line Blame: Toggle Status Bar Item"
             },
             {
                 "command": "betterGitLineBlame.reblameFile",
@@ -66,6 +66,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Show git blame information in the status bar. Click on the status bar item to see more details."
+                },
+                "betterGitLineBlame.statusBarItemPriority": {
+                    "type": "number",
+                    "default": 500,
+                    "description": "Priority of the status bar item. Items are ordered from highest to lowest priority, left to right."
                 },
                 "betterGitLineBlame.ignoreWhitespaceChanges": {
                     "type": "boolean",

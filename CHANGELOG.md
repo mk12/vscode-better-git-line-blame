@@ -3,8 +3,11 @@
 ## Unreleased
 
 - Only blame one line at a time. Originally I thought it was be cool to blame all selected lines at once, but I've changed my mind. I never seem to use it, and when I try it, it's noisy and hard to read because they're not aligned with each other. I would consider implementing a full file blame feature that opens in a side bar.
-- Remove the obsolete configuration `betterGitLineBlame.maxBlamedLines`.
+- Add the ability to show a status bar item instead (or in addition to) the line annotations.
 - Change relative timestamps from "yesterday/last week/last month/last year" to "a day/week/month/year ago". This is used between 1 and 1.5 units, and it could be confusing if today is Wednesday but 1.5 days ago was Monday, which is not "yesterday".
+- Remove the obsolete configuration `betterGitLineBlame.maxBlamedLines`.
+- Added configuration `betterGitLineBlame.showInlineAnnotations` and `betterGitLineBlame.showStatusBarItem`.
+- Added commands "Toggle Inline Annotations" and "Toggle Status Bar Item".
 - Documented commands in README and added FAQ section.
 
 ## 0.1.1
