@@ -404,7 +404,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     state: "commit",
     commit,
     sha: ref,
-    who: commit.email === repo.email ? "You" : commit.email,
+    who: commit.email === repo.email ? "You" : commit.author,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
     diffArgs: [gitUri(ref + "~", commit.prevFilename ?? commit.filename), gitUri(ref, commit.filename)],
