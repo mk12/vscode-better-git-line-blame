@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Added the ability to show a status bar item instead (or in addition to) the line annotations.
 - Added commands "Show Commit", "Show Diff", "Toggle Inline Annotations" and "Toggle Status Bar Item".
