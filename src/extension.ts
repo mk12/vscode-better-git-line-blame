@@ -21,6 +21,7 @@ interface File {
   state: "loading" | "done" | "dirty";
   tracked: "yes" | "no" | "unknown";
   blame: Ref[]; // refs indexed by 0-based line number
+  filenames: Map<Sha, { previous: string, filename: string }>;
   pendingChanges: vscode.TextDocumentContentChangeEvent[];
   pendingEditors: Set<vscode.TextEditor>;
 }
@@ -34,8 +35,6 @@ interface Commit {
   email: string;
   timestamp: number; // Unix timestamp in seconds
   summary: string;
-  prevFilename?: string;
-  filename: string;
   message?: string; // loaded on demand
 }
 
@@ -193,6 +192,7 @@ function loadFile(repo: Repository, editorOrDocument: vscode.TextEditor | vscode
   }
   file.state = "loading";
   file.blame = [];
+  file.filenames = new Map();
   file.pendingChanges = [];
   file.pendingEditors = new Set();
   if (isEditor) file.pendingEditors.add(editorOrDocument);
@@ -400,6 +400,14 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   if (ref === uncommitted) return { state: "uncommitted" };
   const commit = repo.commits.get(ref);
   if (commit === undefined) return { state: "failed" };
+  const path = document.uri.fsPath;
+  let beforePath = path, afterPath = path;
+  const names = file.filenames.get(ref);
+  if (names) {
+    const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
+    beforePath = rootSlash + names.previous;
+    afterPath = rootSlash + names.filename;
+  }
   const info: CommitInfo = {
     state: "commit",
     commit,
@@ -407,7 +415,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     who: commit.email === repo.email ? "You" : commit.author,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
-    diffArgs: [gitUri(ref + "~", commit.prevFilename ?? commit.filename), gitUri(ref, commit.filename)],
+    diffArgs: [gitUri(ref + "~", beforePath), gitUri(ref, afterPath)],
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
@@ -454,13 +462,16 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   const proc = gitSpawn(repo.gitRepo, ["blame", ...flags, "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
   const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
+  if (!path.startsWith(rootSlash)) return log.appendLine(`ERROR: path ${path} does not start with ${rootSlash}`);
+  const relPath = path.slice(rootSlash.length);
   let expectSha = true;
+  let sha: Sha | undefined;
   let commit = undefined;
   for await (const line of readline.createInterface({ input: proc.stdout })) {
     if (expectSha) {
       expectSha = false;
       const words = line.split(" ");
-      const sha = words[0];
+      sha = words[0];
       const ref = sha === "0000000000000000000000000000000000000000" ? uncommitted : sha;
       const start = parseInt(words[2]) - 1;
       const num = parseInt(words[3]);
@@ -491,11 +502,15 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         commit.summary = content.trim();
         break;
       case "previous":
-        commit.prevFilename = rootSlash + content.substring(content.indexOf(" ") + 1);
+      case "filename": {
+        const value = content.substring(content.indexOf(" ") + 1);
+        if (value === relPath) break;
+        if (sha === undefined) return log.appendLine(`ERROR: sha not set`);
+        const names = file.filenames.get(sha);
+        if (!names) file.filenames.set(sha, { previous: value, filename: value });
+        else names[tag] = value;
         break;
-      case "filename":
-        commit.filename = rootSlash + content;
-        break;
+      }
     }
   }
   const code = await exitCode;
