@@ -29,7 +29,7 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 - **Better Git Line Blame: Show Commit**
     - Show the commit message in a separate editor. Same as clicking on the status bar item.
 - **Better Git Line Blame: Show Diff**
-    - Show the current file's diff for the current line's blame commit. Same as the "Show diff" link in the hover panel.
+    - Show the blame's diff for the current file. Same as the "Show diff" link.
 - **Better Git Line Blame: Reblame File**
     - Rerun git blame on the current file.
 - **Better Git Line Blame: Clear Cache**
