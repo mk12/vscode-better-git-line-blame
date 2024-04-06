@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Fix bug where "Show diff" showed the diff of the wrong file.
+
 ## 0.2.1
 
 - Fix bug where annotations and status bar item showed email instead of name.
