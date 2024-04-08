@@ -1,4 +1,5 @@
 import * as child_process from "child_process";
+import { sep as pathSep } from "path";
 import * as readline from "readline";
 import * as vscode from "vscode";
 import type * as git from "./git";
@@ -404,7 +405,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   let beforePath = path, afterPath = path;
   const names = file.filenames.get(ref);
   if (names) {
-    const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
+    const rootSlash = repo.gitRepo.rootUri.fsPath + pathSep;
     beforePath = rootSlash + names.previous;
     afterPath = rootSlash + names.filename;
   }
@@ -461,7 +462,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   if (getConfig().ignoreWhitespaceChanges) flags.push("-w");
   const proc = gitSpawn(repo.gitRepo, ["blame", ...flags, "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
-  const rootSlash = repo.gitRepo.rootUri.fsPath + "/";
+  const rootSlash = repo.gitRepo.rootUri.fsPath + pathSep;
   if (!path.startsWith(rootSlash)) return log.appendLine(`ERROR: path ${path} does not start with ${rootSlash}`);
   const relPath = path.slice(rootSlash.length);
   let expectSha = true;

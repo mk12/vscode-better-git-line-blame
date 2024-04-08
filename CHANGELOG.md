@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Use OS-specific path separator so that it works on Windows.
+
 ## 0.2.2
 
 - Fix bug where "Show diff" showed the diff of the wrong file.
