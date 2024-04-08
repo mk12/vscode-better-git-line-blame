@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.4
 
 - Normalize paths in `git blame` output to make "Show Diff" work on Windows.
 
