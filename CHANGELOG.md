@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Normalize paths in `git blame` output to make "Show Diff" work on Windows.
+
 ## 0.2.3
 
 - Use OS-specific path separator so that it works on Windows.

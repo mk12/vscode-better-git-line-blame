@@ -1,5 +1,5 @@
 import * as child_process from "child_process";
-import { sep as pathSep } from "path";
+import * as pathlib from "path";
 import * as readline from "readline";
 import * as vscode from "vscode";
 import type * as git from "./git";
@@ -405,9 +405,9 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   let beforePath = path, afterPath = path;
   const names = file.filenames.get(ref);
   if (names) {
-    const rootSlash = repo.gitRepo.rootUri.fsPath + pathSep;
-    beforePath = rootSlash + names.previous;
-    afterPath = rootSlash + names.filename;
+    const prefix = repo.gitRepo.rootUri.fsPath + pathlib.sep;
+    beforePath = prefix + names.previous;
+    afterPath = prefix + names.filename;
   }
   const info: CommitInfo = {
     state: "commit",
@@ -445,7 +445,7 @@ function buildHoverMessage(info: CommitInfo) {
 }
 
 function gitUri(ref: Sha, path: string) {
-  return vscode.Uri.from({ scheme: "git", path: path, query: JSON.stringify({ ref, path }) });
+  return vscode.Uri.from({ scheme: "git", path, query: JSON.stringify({ ref, path }) });
 }
 
 function getRepo(uri: vscode.Uri) {
@@ -462,9 +462,9 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
   if (getConfig().ignoreWhitespaceChanges) flags.push("-w");
   const proc = gitSpawn(repo.gitRepo, ["blame", ...flags, "--", path]);
   const exitCode = new Promise(resolve => proc.on("close", resolve));
-  const rootSlash = repo.gitRepo.rootUri.fsPath + pathSep;
-  if (!path.startsWith(rootSlash)) return log.appendLine(`ERROR: path ${path} does not start with ${rootSlash}`);
-  const relPath = path.slice(rootSlash.length);
+  const prefix = repo.gitRepo.rootUri.fsPath + pathlib.sep;
+  if (!path.startsWith(prefix)) return log.appendLine(`ERROR: path ${path} does not start with ${prefix}`);
+  const relPath = path.slice(prefix.length);
   let expectSha = true;
   let sha: Sha | undefined;
   let commit = undefined;
@@ -504,7 +504,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         break;
       case "previous":
       case "filename": {
-        const value = content.substring(content.indexOf(" ") + 1);
+        const value = pathlib.normalize(content.substring(content.indexOf(" ") + 1));
         if (value === relPath) break;
         if (sha === undefined) return log.appendLine(`ERROR: sha not set`);
         const names = file.filenames.get(sha);
