@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.3
 
 - Use OS-specific path separator so that it works on Windows.
 
