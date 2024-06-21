@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.6
 
 - Add configuration `betterGitLineBlame.annotateWholeLine` for opting out of the 0.2.5 change.
 
