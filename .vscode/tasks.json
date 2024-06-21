@@ -1,0 +1,48 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "esbuild-watch",
+			"group": "build",
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"source": "ts",
+					"applyTo": "closedDocuments",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}"
+					],
+					"severity": "error",
+					"pattern": [
+						{
+							"regexp": "^\\s*✘\\s*\\[ERROR\\]\\s*(.+)$",
+							"message": 1
+						},
+						{
+							"regexp": "^\\s*$"
+						},
+						{
+							"regexp": "^\\s*(.+):(\\d+):(\\d+):$",
+							"file": 1,
+							"line": 2,
+							"column": 3
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": {
+							"regexp": "\\s*\\[watch\\] build started"
+						},
+						"endsPattern": {
+							"regexp": "^\\s*\\[watch\\] build finished"
+						}
+					}
+				}
+			],
+			"label": "npm: esbuild-watch",
+			"isBackground": true
+		}
+	]
+}
