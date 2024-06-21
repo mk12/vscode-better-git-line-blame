@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Only show hover messages when you hover over the blame annotation, not when you hover anywhere on the line.
+
 ## 0.2.4
 
 - Normalize paths in `git blame` output to make "Show Diff" work on Windows.

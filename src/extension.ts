@@ -106,7 +106,7 @@ async function toggleConfigAndUpdate(key: string) {
 
 function getDecorationType(config: vscode.WorkspaceConfiguration) {
   return getResource(config, "showInlineAnnotations", () => vscode.window.createTextEditorDecorationType({
-    isWholeLine: true,
+    isWholeLine: false,
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
     after: {
       color: new vscode.ThemeColor("betterGitLineBlame.foregroundColor"),
@@ -291,7 +291,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     loadFile(repo, editor, { reuse: file });
   }
   const line = event.selections[0].start.line;
-  const range = editor.document.lineAt(line).range;
+  const endOfLine = editor.document.lineAt(line).range.end;
+  const range = new vscode.Range(endOfLine, endOfLine);
   const info = getCommitInfo(editor.document, repo, file, line, config);
   lastCommitInfo = info;
   if (decorationType) updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
