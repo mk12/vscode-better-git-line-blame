@@ -213,7 +213,7 @@ function loadBlameForDocument(repo: Repository, file: File, document: vscode.Tex
   const proc = gitSpawn(repo.gitRepo, ["ls-files", "--error-unmatch", path]).on("close", (code) => {
     if (code === 0) {
       file.tracked = "yes";
-      updateEditor(vscode.window.activeTextEditor, document);
+      for (const editor of file.pendingEditors) updateEditor(editor);
     } else if (code === 1) {
       file.tracked = "no";
     } else {
@@ -481,7 +481,10 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
         repo.commits.set(sha, commit = {} as Commit);
       else
         commit = undefined;
-      file.tracked = "yes"
+      if (file.tracked !== "yes") {
+        file.tracked = "yes";
+        for (const editor of file.pendingEditors) updateEditor(editor);
+      }
       continue;
     }
     const idx = line.indexOf(" ");
