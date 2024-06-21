@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add configuration `betterGitLineBlame.annotateWholeLine` for opting out of the 0.2.5 change.
+
 ## 0.2.5
 
 - Only show hover messages when you hover over the blame annotation, not when you hover anywhere on the line.

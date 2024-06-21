@@ -41,6 +41,8 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Show git blame information as inline annotations. Hover on the annotations to see more details.
 - **betterGitLineBlame.showStatusBarItem** (default: false)
     - Show git blame information in the status bar. Click on the status bar item to see more details.
+- **betterGitLineBlame.annotateWholeLine** (default: false)
+    - Attach annotations to the entire line. This prevents flicker when deleting lines, but shows commit details when hovering anywhere on the line.
 - **betterGitLineBlame.statusBarItemPriority** (default: 500)
     - Priority of the status bar item. Items are ordered from highest to lowest priority, left to right.
 - **betterGitLineBlame.ignoreWhitespaceChanges** (default: true)
@@ -59,6 +61,12 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 Only if you're seeing "Uncommited changes" on lines with no diff.
 
 The extension keeps track of local edits, and reblames on git HEAD changes, so you don't normally need to run the "Reblame File" command or use the betterGitLineBlame.reblameOnSave configuration. However, if you change a line and then later undo it, the annotation will still be "Uncomitted changes". If you want to see the original commit, you need to reblame.
+
+### Why do annotations flicker when I delete or join lines?
+
+By default, the extension attaches annotations to the end of the line. When you use VS Code's "Delete Line" or "Join Lines" commands, the annotation might briefly appear in the middle of a line, shifting the rest of the line to the right, before correcting itself. This is usually more noticeable when using Remote Development.
+
+If this bothers you, you can enable the `betterGitLineBlame.annotateWholeLine` configuration property. This makes the annotations use [`isWholeLine: true`](https://code.visualstudio.com/api/references/vscode-api#DecorationRenderOptions.isWholeLine), ensuring they never appear in the middle of a line. The downside is that commit information will show when you hover anywhere on the line, not just when you hover on the blame annotation. In particular, it will get combined with hover messages provided by other extensions, such as type information and documentation.
 
 ## Alternatives
 

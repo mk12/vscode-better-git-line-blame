@@ -58,6 +58,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       api.onDidOpenRepository(addRepository),
       api.onDidCloseRepository(removeRepository),
+      vscode.workspace.onDidChangeConfiguration(onDidChangeConfiguration),
       vscode.workspace.onDidOpenTextDocument(onDidOpenTextDocument),
       vscode.workspace.onDidSaveTextDocument(onDidSaveTextDocument),
       vscode.workspace.onDidChangeTextDocument(onDidChangeTextDocument),
@@ -106,7 +107,7 @@ async function toggleConfigAndUpdate(key: string) {
 
 function getDecorationType(config: vscode.WorkspaceConfiguration) {
   return getResource(config, "showInlineAnnotations", () => vscode.window.createTextEditorDecorationType({
-    isWholeLine: false,
+    isWholeLine: config.annotateWholeLine,
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
     after: {
       color: new vscode.ThemeColor("betterGitLineBlame.foregroundColor"),
@@ -130,13 +131,24 @@ function getStatusBarItem(config: vscode.WorkspaceConfiguration) {
 const resources: Record<string, vscode.Disposable> = {};
 function getResource<T extends vscode.Disposable>(config: vscode.WorkspaceConfiguration, key: string, create: () => T): T | undefined {
   if (!config.get(key)) {
-    resources[key]?.dispose();
-    delete resources[key];
+    deleteResource(key);
     return;
   }
   let resource = resources[key];
   if (resource === undefined) extensionContext.subscriptions.push(resources[key] = resource = create());
   return resource as T;
+}
+
+function deleteResource(key: string) {
+  resources[key]?.dispose();
+  delete resources[key];
+}
+
+function onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
+  if (event.affectsConfiguration("betterGitLineBlame.annotateWholeLine")) {
+    deleteResource("showInlineAnnotations");
+    getDecorationType(getConfig());
+  }
 }
 
 function addRepository(gitRepo: git.Repository): Repository {
