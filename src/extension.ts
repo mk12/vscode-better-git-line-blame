@@ -491,7 +491,7 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
       const num = parseInt(words[3]);
       for (let i = start; i < start + num; i++) file.blame[i] = ref;
       if (ref !== uncommitted && !repo.commits.has(sha))
-        repo.commits.set(sha, commit = {} as Commit);
+        commit = {} as Commit;
       else
         commit = undefined;
       if (file.tracked !== "yes") {
@@ -502,7 +502,11 @@ async function loadBlameForFile(repo: Repository, file: File, path: string) {
     }
     const idx = line.indexOf(" ");
     const tag = line.substring(0, idx);
-    if (tag === "filename") expectSha = true;
+    // Every entry is terminated by the filename.
+    if (tag === "filename") {
+      if (sha !== undefined && commit !== undefined) repo.commits.set(sha, commit);
+      expectSha = true;
+    }
     if (!commit) continue;
     const content = line.substring(idx + 1);
     switch (tag) {
