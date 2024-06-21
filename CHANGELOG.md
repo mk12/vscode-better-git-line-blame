@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix issue where if you type fast, characters would briefly appear after the annotation.
+
 ## 0.2.6
 
 - Add configuration `betterGitLineBlame.annotateWholeLine` for opting out of the 0.2.5 change.

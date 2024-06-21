@@ -303,8 +303,10 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
     loadFile(repo, editor, { reuse: file });
   }
   const line = event.selections[0].start.line;
-  const endOfLine = editor.document.lineAt(line).range.end;
-  const range = new vscode.Range(endOfLine, endOfLine);
+  // Use MAX_VALUE so that it will go on the end of the line even if you type
+  // more characters before the decoration gets applied.
+  const end = new vscode.Position(line, Number.MAX_VALUE);
+  const range = new vscode.Range(end, end);
   const info = getCommitInfo(editor.document, repo, file, line, config);
   lastCommitInfo = info;
   if (decorationType) updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
