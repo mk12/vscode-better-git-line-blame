@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.5
 
 - Only show hover messages when you hover over the blame annotation, not when you hover anywhere on the line.
 
