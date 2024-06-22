@@ -285,10 +285,14 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const editor = event.textEditor;
   const repo = getRepo(editor.document.uri);
   if (!repo) {
-    lastCommitInfo = undefined;
-    if (statusBarItem) {
-      if (editor.document.uri.scheme === "file") updateStatusBarItem(statusBarItem, undefined);
-      else statusBarItem.hide();
+    // Check if it's the active editor, otherwise just having a log window open
+    // will cause a selection change every time a log is printed, and come here.
+    if (editor === vscode.window.activeTextEditor) {
+      lastCommitInfo = undefined;
+      if (statusBarItem) {
+        if (editor.document.uri.scheme === "file") updateStatusBarItem(statusBarItem, undefined);
+        else statusBarItem.hide();
+      }
     }
     return;
   }
