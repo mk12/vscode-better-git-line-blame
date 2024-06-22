@@ -4,6 +4,7 @@
 
 - Fix issue where if you type fast, characters would briefly appear after the annotation.
 - Fix issue where the status bar item would flicker on and off if there was a log window open.
+- Avoid unnecessarily updating decorations when typing and moving cursor within the same line.
 
 ## 0.2.6
 

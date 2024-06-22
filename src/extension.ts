@@ -9,6 +9,8 @@ let log: vscode.LogOutputChannel;
 let gitApi: git.API;
 
 const cache = new Map<string, Repository>();
+const lastDecorationUpdate = new Map<vscode.TextEditor, { line: number, state: CommitStateFull }>();
+let lastStatusBarUpdate: vscode.TextEditor | undefined;
 
 interface Repository {
   gitRepo: git.Repository,
@@ -169,7 +171,12 @@ function addRepository(gitRepo: git.Repository): Repository {
 
 function removeRepository(gitRepo: git.Repository) { cache.delete(gitRepo.rootUri.fsPath); }
 
-function commandClearCache() { for (const repo of cache.values()) repo.files.clear(); }
+function commandClearCache() {
+  for (const repo of cache.values()) repo.files.clear();
+  lastDecorationUpdate.clear();
+  lastStatusBarUpdate = undefined;
+  updateEditor(vscode.window.activeTextEditor);
+}
 
 function commandReblameFile(editor: vscode.TextEditor) {
   const repo = getRepo(editor.document.uri);
@@ -274,10 +281,10 @@ function onDidChangeActiveTextEditor(event: vscode.TextEditor | undefined) {
 function updateEditor(editor?: vscode.TextEditor, document?: vscode.TextDocument) {
   if (!editor) return;
   if (document && editor.document !== document) return;
-  onDidChangeTextEditorSelection({ textEditor: editor, selections: editor.selections, kind: undefined });
+  onDidChangeTextEditorSelection({ textEditor: editor, selections: editor.selections, kind: undefined }, { force: true });
 }
 
-async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionChangeEvent) {
+async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionChangeEvent, options?: { force?: boolean }) {
   const config = getConfig();
   const decorationType = getDecorationType(config);
   const statusBarItem = getStatusBarItem(config);
@@ -302,6 +309,8 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   if (repo.head !== actualHead) {
     const newHead = actualHead ?? uncommitted;
     log.appendLine(`${repo.gitRepo.rootUri.fsPath}: detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
+    lastDecorationUpdate.clear();
+    lastStatusBarUpdate = undefined;
     repo.head = newHead;
     repo.files.clear();
     loadFile(repo, editor, { reuse: file });
@@ -311,10 +320,21 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   // more characters before the decoration gets applied.
   const end = new vscode.Position(line, Number.MAX_VALUE);
   const range = new vscode.Range(end, end);
-  const info = getCommitInfo(editor.document, repo, file, line, config);
+  const temp = getCommitTemp(editor.document, repo, file, line);
+  const lastUpdate = lastDecorationUpdate.get(editor);
+  const decorationStale = options?.force || lastCommitInfo === undefined || lastUpdate === undefined || lastUpdate.line !== line || lastUpdate.state !== temp.state;
+  const statusBarStale = decorationStale || lastStatusBarUpdate !== editor;
+  const decorationNeedsUpdate = decorationType && decorationStale;
+  const statusBarNeedsUpdate = statusBarItem && statusBarStale;
+  if (!decorationNeedsUpdate && !statusBarNeedsUpdate) return;
+  lastDecorationUpdate.set(editor, { line, state: temp.state });
+  lastStatusBarUpdate = editor;
+  const info = getCommitInfo(editor.document, repo, file, temp, config);
   lastCommitInfo = info;
-  if (decorationType) updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
-  if (statusBarItem) updateAsync("status", info, () => updateStatusBarItem(statusBarItem, info));
+  if (decorationNeedsUpdate)
+    updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
+  if (statusBarNeedsUpdate)
+    updateAsync("status", info, () => updateStatusBarItem(statusBarItem, info));
 }
 
 const updateIds = { decoration: 0, status: 0 };
@@ -356,19 +376,19 @@ function updateStatusBarItem(item: vscode.StatusBarItem, info?: CommitInfo) {
 }
 
 function commandShowCommit() {
-  const info = getFullCommitInfo();
+  const info = getLastCommitInfoFull();
   if (!info) return;
   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
   vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
 }
 
 function commandShowDiff() {
-  const info = getFullCommitInfo();
+  const info = getLastCommitInfoFull();
   if (!info) return;
   vscode.commands.executeCommand("vscode.diff", ...info.diffArgs);
 }
 
-function getFullCommitInfo(): CommitInfoFull | undefined {
+function getLastCommitInfoFull(): CommitInfoFull | undefined {
   if (lastCommitInfo === undefined) {
     vscode.window.showErrorMessage("This file is not in an open git repository");
     return;
@@ -400,7 +420,17 @@ ${commit.message}`;
   }
 }
 
-type CommitInfo = CommitInfoFull | { state: "untracked" | "uncommitted" | "dirty" | "loading" | "failed" };
+type CommitState = "untracked" | "uncommitted" | "dirty" | "loading" | "failed";
+type CommitStateFull = CommitState | "commit";
+
+type CommitTemp = { state: CommitState } | CommitTempFull;
+interface CommitTempFull {
+  state: "commit",
+  sha: Sha,
+  commit: Commit,
+}
+
+type CommitInfo = { state: CommitState } | CommitInfoFull;
 interface CommitInfoFull {
   state: "commit",
   who: string,
@@ -412,7 +442,7 @@ interface CommitInfoFull {
   loadedMessage?: Promise<void>,
 }
 
-function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: File, line: number, config: vscode.WorkspaceConfiguration): CommitInfo {
+function getCommitTemp(document: vscode.TextDocument, repo: Repository, file: File, line: number): CommitTemp {
   if (file.tracked !== "yes") return { state: "untracked" };
   if (file.state === "dirty") return { state: "dirty" };
   const ref = file.blame[line];
@@ -420,9 +450,15 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   if (ref === uncommitted) return { state: "uncommitted" };
   const commit = repo.commits.get(ref);
   if (commit === undefined) return { state: "failed" };
+  return { state: "commit", sha: ref, commit };
+}
+
+function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: File, temp: CommitTemp, config: vscode.WorkspaceConfiguration): CommitInfo {
+  if (temp.state !== "commit") return temp;
+  const { sha, commit } = temp;
   const path = document.uri.fsPath;
   let beforePath = path, afterPath = path;
-  const names = file.filenames.get(ref);
+  const names = file.filenames.get(sha);
   if (names) {
     const prefix = repo.gitRepo.rootUri.fsPath + pathlib.sep;
     beforePath = prefix + names.previous;
@@ -431,15 +467,15 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   const info: CommitInfo = {
     state: "commit",
     commit,
-    sha: ref,
+    sha,
     who: commit.email === repo.email ? "You" : commit.author,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
-    diffArgs: [gitUri(ref + "~", beforePath), gitUri(ref, afterPath)],
+    diffArgs: [gitUri(sha + "~", beforePath), gitUri(sha, afterPath)],
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
-      const raw = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", ref]);
+      const raw = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha]);
       // Convert to hard line breaks for Markdown.
       // This adds trailing spaces in code blocks too but that's not a big deal.
       commit.message = raw.replace(/\n/g, "  \n");
