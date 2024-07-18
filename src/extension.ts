@@ -500,7 +500,7 @@ function buildHoverMessage(info: CommitInfo) {
 }
 
 function gitUri(ref: Sha, path: string) {
-  return vscode.Uri.from({ scheme: "git", path, query: JSON.stringify({ ref, path }) });
+  return gitApi.toGitUri(vscode.Uri.file(path), ref)
 }
 
 function getRepo(uri: vscode.Uri) {
