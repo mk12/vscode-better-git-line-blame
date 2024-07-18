@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- [ChrisJohnsen](https://github.com/ChrisJohnsen) Fixed "Show diff" on Windows ([#6](https://github.com/mk12/vscode-better-git-line-blame/pull/6)).
+
 ## 0.2.7
 
 - Fix issue where if you type fast, characters would briefly appear after the annotation.
