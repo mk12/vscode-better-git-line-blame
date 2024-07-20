@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.9
 
 - Add quota system to abort the extension if it gets into a runaway loop.
 - Fix issue where the extension would reblame in an runaway loop when opening a git project with no commits ([#7](https://github.com/mk12/vscode-better-git-line-blame/issues/7)).
