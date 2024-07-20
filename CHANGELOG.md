@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add quota system to abort the extension if it gets into a runaway loop.
+
 ## 0.2.8
 
 - [ChrisJohnsen](https://github.com/ChrisJohnsen) Fixed "Show diff" on Windows ([#6](https://github.com/mk12/vscode-better-git-line-blame/pull/6)).

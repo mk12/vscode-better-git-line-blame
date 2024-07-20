@@ -2,6 +2,7 @@ import * as child_process from "child_process";
 import * as pathlib from "path";
 import * as readline from "readline";
 import * as vscode from "vscode";
+import { performance } from "perf_hooks";
 import type * as git from "./git";
 
 let extensionContext: vscode.ExtensionContext;
@@ -95,6 +96,37 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() { cache.clear(); }
+
+class Quota {
+  name: string;
+  perSecond: number;
+  startMs = 0;
+  count = 0;
+  static failureMessage: string;
+
+  constructor(name: string, perSecond: number) {
+    this.name = name;
+    this.perSecond = perSecond;
+  }
+
+  tick() {
+    if (Quota.failureMessage) throw Error(Quota.failureMessage);
+    this.count += 1;
+    const nowMs = performance.now();
+    const elapsedMs = nowMs - this.startMs;
+    if (elapsedMs < 1000) return;
+    if (this.count > this.perSecond) {
+      Quota.failureMessage = `Aborting the Better Git Line Blame extension because ${this.name} was called more than ${this.perSecond} times in 1s. ` +
+        `Please file a bug at https://github.com/mk12/vscode-better-git-line-blame/issues/new.`;
+      log.appendLine(Quota.failureMessage);
+      vscode.window.showErrorMessage(Quota.failureMessage);
+      for (const item of extensionContext.subscriptions) if (item !== log) item.dispose();
+      throw Error(Quota.failureMessage);
+    }
+    this.startMs = nowMs;
+    this.count = 0;
+  }
+}
 
 function getConfig() { return vscode.workspace.getConfiguration("betterGitLineBlame"); }
 
@@ -200,7 +232,9 @@ function onDidSaveTextDocument(document: vscode.TextDocument) {
   updateEditor(vscode.window.activeTextEditor, document);
 }
 
+const loadFileQuota = new Quota("loadFile", 1000);
 function loadFile(repo: Repository, editorOrDocument: vscode.TextEditor | vscode.TextDocument, options?: { force?: boolean, reuse?: File }) {
+  loadFileQuota.tick();
   const isEditor = "document" in editorOrDocument;
   const document = isEditor ? editorOrDocument.document : editorOrDocument;
   const path = document.uri.fsPath;
