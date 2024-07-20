@@ -339,13 +339,12 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   }
   const file = loadFile(repo, editor);
   if (file.state === "loading") file.pendingEditors.add(editor);
-  const actualHead = repo.gitRepo.state.HEAD?.commit;
+  const actualHead = repo.gitRepo.state.HEAD?.commit ?? uncommitted;
   if (repo.head !== actualHead) {
-    const newHead = actualHead ?? uncommitted;
-    log.appendLine(`${repo.gitRepo.rootUri.fsPath}: detected HEAD change from ${String(repo.head)} to ${String(newHead)}`);
+    log.appendLine(`${repo.gitRepo.rootUri.fsPath}: detected HEAD change from ${String(repo.head)} to ${String(actualHead)}`);
     lastDecorationUpdate.clear();
     lastStatusBarUpdate = undefined;
-    repo.head = newHead;
+    repo.head = actualHead;
     repo.files.clear();
     loadFile(repo, editor, { reuse: file });
   }
