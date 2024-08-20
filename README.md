@@ -41,6 +41,8 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Show git blame information as inline annotations. Hover on the annotations to see more details.
 - **betterGitLineBlame.showStatusBarItem** (default: false)
     - Show git blame information in the status bar. Click on the status bar item to see more details.
+- **betterGitLineBlame.enableHoverMessages** (default: true)
+    - Show commit details when hovering over inline annotations.
 - **betterGitLineBlame.annotateWholeLine** (default: false)
     - Attach annotations to the entire line. This prevents flicker when deleting lines, but shows commit details when hovering anywhere on the line.
 - **betterGitLineBlame.statusBarItemPriority** (default: 500)

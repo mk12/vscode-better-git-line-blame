@@ -141,7 +141,7 @@ async function toggleConfigAndUpdate(key: string) {
 
 function getDecorationType(config: vscode.WorkspaceConfiguration) {
   return getResource(config, "showInlineAnnotations", () => vscode.window.createTextEditorDecorationType({
-    isWholeLine: config.annotateWholeLine,
+    isWholeLine: config.get("annotateWholeLine"),
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
     after: {
       color: new vscode.ThemeColor("betterGitLineBlame.foregroundColor"),
@@ -365,22 +365,22 @@ async function onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionC
   const info = getCommitInfo(editor.document, repo, file, temp, config);
   lastCommitInfo = info;
   if (decorationNeedsUpdate)
-    updateAsync("decoration", info, () => updateDecoration(editor, range, decorationType, info));
+    updateDecorationAsync(editor, range, decorationType, info, config.get("enableHoverMessages") as boolean);
   if (statusBarNeedsUpdate)
-    updateAsync("status", info, () => updateStatusBarItem(statusBarItem, info));
+    updateStatusBarItem(statusBarItem, info);
 }
 
-const updateIds = { decoration: 0, status: 0 };
-async function updateAsync(key: keyof typeof updateIds, info: CommitInfo, update: () => void) {
-  const id = ++updateIds[key];
-  update();
-  if (info.state === "commit" && info.loadedMessage !== undefined) {
+let decorationUpdateId = 0;
+async function updateDecorationAsync(editor: vscode.TextEditor, range: vscode.Range, type: vscode.TextEditorDecorationType, info: CommitInfo, enableHover: boolean) {
+  const id = ++decorationUpdateId;
+  updateDecoration(editor, range, type, info, enableHover);
+  if (info.state === "commit" && info.loadedMessage !== undefined && enableHover) {
     await info.loadedMessage;
-    if (updateIds[key] === id) update();
+    if (decorationUpdateId === id) updateDecoration(editor, range, type, info, enableHover);
   }
 }
 
-function updateDecoration(editor: vscode.TextEditor, range: vscode.Range, type: vscode.TextEditorDecorationType, info: CommitInfo) {
+function updateDecoration(editor: vscode.TextEditor, range: vscode.Range, type: vscode.TextEditorDecorationType, info: CommitInfo, enableHover: boolean) {
   let text;
   switch (info.state) {
     case "untracked": editor.setDecorations(type, []); return;
@@ -390,7 +390,8 @@ function updateDecoration(editor: vscode.TextEditor, range: vscode.Range, type: 
     case "failed": text = "(Failed to blame)"; break;
     case "commit": text = `${info.who}, ${info.when} • ${info.summary}`; break;
   }
-  editor.setDecorations(type, [{ range, renderOptions: { after: { contentText: text } }, hoverMessage: buildHoverMessage(info) }]);
+  const hoverMessage = enableHover ? buildHoverMessage(info) : undefined;
+  editor.setDecorations(type, [{ range, renderOptions: { after: { contentText: text } }, hoverMessage }]);
 }
 
 function updateStatusBarItem(item: vscode.StatusBarItem, info?: CommitInfo) {
@@ -408,9 +409,21 @@ function updateStatusBarItem(item: vscode.StatusBarItem, info?: CommitInfo) {
   item.show();
 }
 
-function commandShowCommit() {
+async function commandShowCommit() {
   const info = getLastCommitInfoFull();
   if (!info) return;
+  if (!info.commit.message) {
+    let canceled = false;
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Loading commit message...",
+      cancellable: true,
+    }, (progress, token) => {
+      token.onCancellationRequested(() => canceled = true);
+      return info.loadedMessage ?? Promise.resolve();
+    });
+    if (canceled) return;
+  }
   const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
   vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
 }
@@ -436,6 +449,8 @@ function getLastCommitInfoFull(): CommitInfoFull | undefined {
   }
 }
 
+const commitMessageLoading = "_Commit message loading..._";
+
 let lastCommitInfo: CommitInfo | undefined;
 class CommitMessageProvider implements vscode.TextDocumentContentProvider {
   provideTextDocumentContent(uri: vscode.Uri): vscode.ProviderResult<string> {
@@ -449,7 +464,7 @@ class CommitMessageProvider implements vscode.TextDocumentContentProvider {
 **Author:** ${commit.author} &lt;${commit.email}&gt;\\
 **Date:** ${isoDateAndTime(commit.timestamp)}
 
-${commit.message}`;
+${commit.message ?? commitMessageLoading}`;
   }
 }
 
@@ -497,13 +512,14 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     beforePath = prefix + names.previous;
     afterPath = prefix + names.filename;
   }
+  const maxSummaryLength = config.get("maxSummaryLength") as number;
   const info: CommitInfo = {
     state: "commit",
     commit,
     sha,
     who: commit.email === repo.email ? "You" : commit.author,
     when: friendlyTimestamp(commit.timestamp),
-    summary: truncateEllipsis(commit.summary, config.maxSummaryLength === 0 ? Infinity : config.maxSummaryLength),
+    summary: truncateEllipsis(commit.summary, maxSummaryLength === 0 ? Infinity : maxSummaryLength),
     diffArgs: [gitUri(sha + "~", beforePath), gitUri(sha, afterPath)],
   };
   if (commit.message === undefined) {
@@ -524,7 +540,7 @@ function buildHoverMessage(info: CommitInfo) {
   const email = commit.email.replace("@", "&#64;");
   const date = isoDate(commit.timestamp);
   const mainPart = new vscode.MarkdownString(
-    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${commit.message}`
+    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${commit.message ?? commitMessageLoading}`
   );
   const command = vscode.Uri.from({ scheme: "command", path: "vscode.diff", query: JSON.stringify(info.diffArgs) });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);

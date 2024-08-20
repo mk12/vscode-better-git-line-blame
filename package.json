@@ -75,6 +75,11 @@
                     "default": false,
                     "description": "Show git blame information in the status bar. Click on the status bar item to see more details."
                 },
+                "betterGitLineBlame.enableHoverMessages": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show commit details when hovering over inline annotations."
+                },
                 "betterGitLineBlame.annotateWholeLine": {
                     "type": "boolean",
                     "default": false,
