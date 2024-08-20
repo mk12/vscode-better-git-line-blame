@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.10
 
 - Add configuration `betterGitLineBlame.enableHoverMessages` (true by default) so that users can opt out of hover messages ([#10](https://github.com/mk12/vscode-better-git-line-blame/issues/10)).
 - Show "Commit message loading..." instead of "undefined" when the commit message hasn't loaded yet.
