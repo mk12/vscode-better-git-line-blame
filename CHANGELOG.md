@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.11
+
+- Had to publish a new version because 0.2.10 had an extension validation error: "Something went wrong, please retry after sometime."
+
 ## 0.2.10
 
 - Add configuration `betterGitLineBlame.enableHoverMessages` (true by default) so that users can opt out of hover messages ([#10](https://github.com/mk12/vscode-better-git-line-blame/issues/10)).
