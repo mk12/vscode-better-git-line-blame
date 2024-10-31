@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Turn GitHub and GitLab issue/PR numbers into links ([#11](https://github.com/mk12/vscode-better-git-line-blame/issues/11)). Thanks to [jkjustjoshing](https://github.com/jkjustjoshing) for helping.
+
 ## 0.2.12
 
 - Annotate the line where the active cursor is, not the top line of the selection ([#16](https://github.com/mk12/vscode-better-git-line-blame/issues/16)).
