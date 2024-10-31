@@ -19,6 +19,7 @@ interface Repository {
   head: Ref;
   files: Map<string, File>;
   commits: Map<Sha, Commit>;
+  host?: Host;
 }
 
 interface File {
@@ -39,7 +40,17 @@ interface Commit {
   email: string;
   timestamp: number; // Unix timestamp in seconds
   summary: string;
-  message?: string; // loaded on demand
+  message?: CommitMessage; // loaded on demand
+}
+
+interface CommitMessage {
+  raw: string;
+  markdown: string;
+}
+
+interface Host {
+  kind: "github" | "gitlab";
+  path: string;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -198,8 +209,27 @@ function addRepository(gitRepo: git.Repository): Repository {
     commits: new Map(),
   };
   cache.set(path, repo);
+  const candidates = new Map<string, Host>();
+  for (const remote of gitRepo.state.remotes) {
+    for (const url of [remote.fetchUrl, remote.pushUrl]) {
+      if (!url) continue;
+      const host = parseHostFromUrl(url);
+      if (host) candidates.set(remote.name, host);
+    }
+  }
+  // Prefer upstream since that's where issues will probably be.
+  repo.host = candidates.get("upstream") ?? candidates.get("origin") ?? candidates.values().next().value;
+  log.appendLine(`host for repo is ${JSON.stringify(repo.host)}`);
   gitStdout(gitRepo, ["config", "user.email"]).then((output) => repo.email = output.trim());
   return repo;
+}
+
+function parseHostFromUrl(url: string): Host | undefined {
+  let match;
+  if ((match = url.match(/^https:\/\/github\.com\/(.+?\/.+?)(\.git)?$/))) return { kind: "github", path: match[1] };
+  if ((match = url.match(/^git@github\.com:(.+?\/.+?)(\.git)?$/))) return { kind: "github", path: match[1] };
+  if ((match = url.match(/^https:\/\/gitlab\.com\/(.+?\/.+?)(\.git)?$/))) return { kind: "gitlab", path: match[1] };
+  if ((match = url.match(/^git@gitlab\.com:(.+?\/.+?)(\.git)?$/))) return { kind: "gitlab", path: match[1] };
 }
 
 function removeRepository(gitRepo: git.Repository) { cache.delete(gitRepo.rootUri.fsPath); }
@@ -455,17 +485,6 @@ function getLastCommitInfoFull(): CommitInfoFull | undefined {
   }
 }
 
-function formatCommitMessage(commit: Commit) {
-  return commit.message ?? "Commit message loading...";
-}
-
-function formatCommitMessageMarkdown(commit: Commit) {
-  // Convert to hard line breaks for Markdown.
-  // This adds trailing spaces in code blocks too but that's not a big deal.
-  if (commit.message) return commit.message.replace(/\n/g, "  \n");
-  return "_Commit message loading..._";
-}
-
 let lastCommitInfo: CommitInfo | undefined;
 class CommitMessageProvider implements vscode.TextDocumentContentProvider {
   provideTextDocumentContent(uri: vscode.Uri): vscode.ProviderResult<string> {
@@ -480,14 +499,14 @@ class CommitMessageProvider implements vscode.TextDocumentContentProvider {
 **Author:** ${commit.author} &lt;${commit.email}&gt;\\
 **Date:** ${isoDateAndTime(commit.timestamp)}
 
-${formatCommitMessageMarkdown(commit)}`;
+${commit.message?.markdown}`;
     }
     return `\
 Commit: ${info.sha}
 Author: ${commit.author} <${commit.email}>
 Date: ${isoDateAndTime(commit.timestamp)}
 
-${formatCommitMessage(commit)}`;
+${commit.message?.raw}`;
   }
 }
 
@@ -547,10 +566,31 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
-      commit.message = (await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha])).trimEnd();
+      const raw = (await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha])).trimEnd();
+      commit.message = { raw, markdown: commitMessageToMarkdown(raw, repo.host) };
     })();
   }
   return info;
+}
+
+function commitMessageToMarkdown(raw: string, host?: Host) {
+  // Convert to hard line breaks for Markdown.
+  // This adds trailing spaces in code blocks too but that's not a big deal.
+  let result = raw.replace(/\n/g, "  \n");
+  switch (host?.kind) {
+    case "github":
+      // GitHub issues and PRs both use the hash sign (#).
+      // Just linking to /issues is fine because it will redirect if it's a PR.
+      result = result.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://github.com/$1/issues/$2)`);
+      result = result.replace(/(\B#|\bGH-)(\d+)\b/g, `[$1$2](https://github.com/${host.path}/issues/$2)`);
+      break;
+    case "gitlab":
+      result = result.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://gitlab.com/$1/-/issues/$2)`);
+      result = result.replace(/(\B#|\bGL-)(\d+)\b/g, `[$1$2](https://gitlab.com/${host.path}/-/issues/$2)`);
+      result = result.replace(/\B!(\d+)\b/g, `[!$1](https://gitlab.com/${host.path}/-/merge_requests/$1)`);
+      break;
+  }
+  return result;
 }
 
 function buildHoverMessage(info: CommitInfo) {
@@ -559,8 +599,9 @@ function buildHoverMessage(info: CommitInfo) {
   // Prevent automatic mailto link.
   const email = commit.email.replace("@", "&#64;");
   const date = isoDate(commit.timestamp);
+  const message = commit.message?.markdown ?? "_Commit message loading..._";
   const mainPart = new vscode.MarkdownString(
-    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${formatCommitMessageMarkdown(commit)}`
+    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
   );
   const command = vscode.Uri.from({ scheme: "command", path: "vscode.diff", query: JSON.stringify(info.diffArgs) });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);

@@ -14,6 +14,7 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
 - Optionally shows blame information in the status bar.
 - Caches blame data so annotations are instantaneous.
 - On hover, shows the commit author, date, message, and SHA.
+- Autolinks to issues and PRs on GitHub and GitLab.
 - Includes a "Show diff" link using VS Code's built-in diff viewer.
 - Supports multiple git repositories in the same workspace.
 - Uses `git blame --incremental` to provide blame quickly and incrementally.
