@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Annotate the line where the active cursor is, not the top line of the selection ([#16](https://github.com/mk12/vscode-better-git-line-blame/issues/16)).
+
 ## 0.2.11
 
 - Had to publish a new version because 0.2.10 had an extension validation error: "Something went wrong, please retry after sometime."
