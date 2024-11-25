@@ -39,6 +39,10 @@
                 "title": "Better Git Line Blame: Show Commit"
             },
             {
+                "command": "betterGitLineBlame.showCommitPlainText",
+                "title": "Better Git Line Blame: Show Commit (Plain Text)"
+            },
+            {
                 "command": "betterGitLineBlame.showDiff",
                 "title": "Better Git Line Blame: Show Diff"
             },

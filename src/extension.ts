@@ -71,6 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("betterGitLineBlame.toggleInlineAnnotations", commandToggleInlineAnnotations),
       vscode.commands.registerCommand("betterGitLineBlame.toggleStatusBarItem", commandToggleStatusBarItem),
       vscode.commands.registerCommand("betterGitLineBlame.showCommit", commandShowCommit),
+      vscode.commands.registerCommand("betterGitLineBlame.showCommitPlainText", commandShowCommitPlainText),
       vscode.commands.registerCommand("betterGitLineBlame.showDiff", commandShowDiff),
       vscode.commands.registerCommand("betterGitLineBlame.clearCache", commandClearCache),
       vscode.commands.registerTextEditorCommand("betterGitLineBlame.reblameFile", commandReblameFile),
@@ -130,8 +131,8 @@ class Quota {
 
 function getConfig() { return vscode.workspace.getConfiguration("betterGitLineBlame"); }
 
-function commandToggleInlineAnnotations() { return toggleConfigAndUpdate("showInlineAnnotations"); }
-async function commandToggleStatusBarItem() { return toggleConfigAndUpdate("showStatusBarItem"); }
+function commandToggleInlineAnnotations() { toggleConfigAndUpdate("showInlineAnnotations"); }
+function commandToggleStatusBarItem() { toggleConfigAndUpdate("showStatusBarItem"); }
 
 async function toggleConfigAndUpdate(key: string) {
   const config = getConfig();
@@ -409,7 +410,10 @@ function updateStatusBarItem(item: vscode.StatusBarItem, info?: CommitInfo) {
   item.show();
 }
 
-async function commandShowCommit() {
+function commandShowCommit() { showCommitDocument({ rendered: true }); }
+function commandShowCommitPlainText() { showCommitDocument({ rendered: false }); }
+
+async function showCommitDocument(options: { rendered: boolean }) {
   const info = getLastCommitInfoFull();
   if (!info) return;
   if (!info.commit.message) {
@@ -424,8 +428,10 @@ async function commandShowCommit() {
     });
     if (canceled) return;
   }
-  const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}`, true);
-  vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+  const query = options.rendered ? "?md" : "";
+  const uri = vscode.Uri.parse(`better-git-line-blame-commit:${info.sha}${query}`, true);
+  if (options.rendered) vscode.commands.executeCommand("markdown.showPreviewToSide", uri);
+  else vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), vscode.ViewColumn.Beside);
 }
 
 function commandShowDiff() {
@@ -449,7 +455,16 @@ function getLastCommitInfoFull(): CommitInfoFull | undefined {
   }
 }
 
-const commitMessageLoading = "_Commit message loading..._";
+function formatCommitMessage(commit: Commit) {
+  return commit.message ?? "Commit message loading...";
+}
+
+function formatCommitMessageMarkdown(commit: Commit) {
+  // Convert to hard line breaks for Markdown.
+  // This adds trailing spaces in code blocks too but that's not a big deal.
+  if (commit.message) return commit.message.replace(/\n/g, "  \n");
+  return "_Commit message loading..._";
+}
 
 let lastCommitInfo: CommitInfo | undefined;
 class CommitMessageProvider implements vscode.TextDocumentContentProvider {
@@ -459,12 +474,20 @@ class CommitMessageProvider implements vscode.TextDocumentContentProvider {
     if (info.state !== "commit") return `Cannot load commit message for ${uri.path}: state is ${info.state}`;
     if (uri.path !== info.sha) return `Cannot load commit message for ${uri.path}: SHA mismatch`;
     const commit = info.commit;
-    return `\
+    if (uri.query === "md") {
+      return `\
 **Commit:** ${info.sha}\\
 **Author:** ${commit.author} &lt;${commit.email}&gt;\\
 **Date:** ${isoDateAndTime(commit.timestamp)}
 
-${commit.message ?? commitMessageLoading}`;
+${formatCommitMessageMarkdown(commit)}`;
+    }
+    return `\
+Commit: ${info.sha}
+Author: ${commit.author} <${commit.email}>
+Date: ${isoDateAndTime(commit.timestamp)}
+
+${formatCommitMessage(commit)}`;
   }
 }
 
@@ -524,10 +547,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
-      const raw = await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha]);
-      // Convert to hard line breaks for Markdown.
-      // This adds trailing spaces in code blocks too but that's not a big deal.
-      commit.message = raw.replace(/\n/g, "  \n");
+      commit.message = (await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha])).trimEnd();
     })();
   }
   return info;
@@ -540,7 +560,7 @@ function buildHoverMessage(info: CommitInfo) {
   const email = commit.email.replace("@", "&#64;");
   const date = isoDate(commit.timestamp);
   const mainPart = new vscode.MarkdownString(
-    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${commit.message ?? commitMessageLoading}`
+    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${formatCommitMessageMarkdown(commit)}`
   );
   const command = vscode.Uri.from({ scheme: "command", path: "vscode.diff", query: JSON.stringify(info.diffArgs) });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);

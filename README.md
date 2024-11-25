@@ -28,6 +28,8 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Toggle betterGitLineBlame.showStatusBarItem in your user settings file.
 - **Better Git Line Blame: Show Commit**
     - Show the commit message in a separate editor. Same as clicking on the status bar item.
+- **Better Git Line Blame: Show Commit (Plain Text)**
+    - Like "Show Commit", but in plain text instead of rendering as Markdown.
 - **Better Git Line Blame: Show Diff**
     - Show the blame's diff for the current file. Same as the "Show diff" link.
 - **Better Git Line Blame: Reblame File**
