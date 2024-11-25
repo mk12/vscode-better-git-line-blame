@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.12
 
 - Annotate the line where the active cursor is, not the top line of the selection ([#16](https://github.com/mk12/vscode-better-git-line-blame/issues/16)).
 - Add command "Show Commit (Plain Text)" ([#19](https://github.com/mk12/vscode-better-git-line-blame/issues/19)).
