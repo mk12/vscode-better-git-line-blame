@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.13
 
 - Turn GitHub and GitLab issue/PR numbers into links ([#11](https://github.com/mk12/vscode-better-git-line-blame/issues/11)). Thanks to [jkjustjoshing](https://github.com/jkjustjoshing) for helping.
 
