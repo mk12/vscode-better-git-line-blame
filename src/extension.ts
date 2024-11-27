@@ -567,30 +567,67 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
       const raw = (await gitStdout(repo.gitRepo, ["show", "-s", "--format=%B", sha])).trimEnd();
-      commit.message = { raw, markdown: commitMessageToMarkdown(raw, repo.host) };
+      commit.message = { raw, markdown: markdownifyCommitMessage(raw, repo.host) };
     })();
   }
   return info;
 }
 
-function commitMessageToMarkdown(raw: string, host?: Host) {
-  // Convert to hard line breaks for Markdown.
-  // This adds trailing spaces in code blocks too but that's not a big deal.
-  let result = raw.replace(/\n/g, "  \n");
+function markdownifyCommitMessage(raw: string, host: Host | undefined) {
+  // This extension renders commit messages as Markdown so that it can use bold,
+  // italic, links, etc. If the messages happen to be intentionally written in
+  // Markdown, great! But it should look fine even if they're not. Either way,
+  // we just need to add hard line breaks, and autolink issues/PRs.
+  if (!/^```|(?:\r?\n){2}(?:\t| {4})\S/m.test(raw))
+    return autolinkIssuesAndPrs(raw.replace(/\r?\n/g, "  \n"), host);
+  // Slow path when there are code blocks (whether intended as such or not).
+  let result = "";
+  let mode = "normal";
+  let prevBlank = true;
+  for (let line of raw.split("\n")) {
+    line = line.trimEnd(); // deal with carriage returns
+    switch (mode) {
+      case "indented":
+        if (/^\t| {4}/.test(line)) break;
+        mode = "normal";
+      // fallthrough
+      case "normal":
+        if (line.startsWith("```")) {
+          // VS Code uses the current file's language for highlighting code
+          // blocks in hovers by default (assuming e.g. they're docs). This is a
+          // bad choice for commit messages so force plain text instead. Note
+          // that the problem remains for indented code blocks.
+          if (line === "```") line = "```text";
+          mode = "fenced";
+        }
+        else if (prevBlank && /^\t| {4}/.test(line)) mode = "indented";
+        else if (line !== "") line = autolinkIssuesAndPrs(line, host) + "  ";
+        break;
+      case "fenced":
+        if (line === "```") mode = "normal";
+        break;
+    }
+    result += line + "\n";
+    prevBlank = line === "";
+  }
+  return result;
+}
+
+function autolinkIssuesAndPrs(text: string, host: Host | undefined) {
   switch (host?.kind) {
     case "github":
       // GitHub issues and PRs both use the hash sign (#).
       // Just linking to /issues is fine because it will redirect if it's a PR.
-      result = result.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://github.com/$1/issues/$2)`);
-      result = result.replace(/(\B#|\bGH-)(\d+)\b/g, `[$1$2](https://github.com/${host.path}/issues/$2)`);
+      text = text.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://github.com/$1/issues/$2)`);
+      text = text.replace(/(\B#|\bGH-)(\d+)\b/g, `[$1$2](https://github.com/${host.path}/issues/$2)`);
       break;
     case "gitlab":
-      result = result.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://gitlab.com/$1/-/issues/$2)`);
-      result = result.replace(/(\B#|\bGL-)(\d+)\b/g, `[$1$2](https://gitlab.com/${host.path}/-/issues/$2)`);
-      result = result.replace(/\B!(\d+)\b/g, `[!$1](https://gitlab.com/${host.path}/-/merge_requests/$1)`);
+      text = text.replace(/\b([\w.-]+\/[\w.-]+)#(\d+)\b/g, `[$1#$2](https://gitlab.com/$1/-/issues/$2)`);
+      text = text.replace(/(\B#|\bGL-)(\d+)\b/g, `[$1$2](https://gitlab.com/${host.path}/-/issues/$2)`);
+      text = text.replace(/\B!(\d+)\b/g, `[!$1](https://gitlab.com/${host.path}/-/merge_requests/$1)`);
       break;
   }
-  return result;
+  return text;
 }
 
 function buildHoverMessage(info: CommitInfo) {

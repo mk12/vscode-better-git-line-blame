@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fix handling of commit messages with CRLF line endings.
+- Prevent incorrect linking of issue/PR numbers inside code blocks.
+
 ## 0.2.13
 
 - Turn GitHub and GitLab issue/PR numbers into links ([#11](https://github.com/mk12/vscode-better-git-line-blame/issues/11)). Thanks to [jkjustjoshing](https://github.com/jkjustjoshing) for helping.
