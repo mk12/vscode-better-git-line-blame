@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.14
 
 - Fix handling of commit messages with CRLF line endings.
 - Prevent incorrect linking of issue/PR numbers inside code blocks.
