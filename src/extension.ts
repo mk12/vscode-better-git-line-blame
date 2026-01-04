@@ -1,4 +1,5 @@
 import * as child_process from "child_process";
+import * as crypto from "crypto";
 import * as pathlib from "path";
 import * as readline from "readline";
 import * as vscode from "vscode";
@@ -652,6 +653,11 @@ function autolinkIssuesAndPrs(text: string, host: Host | undefined) {
   return text;
 }
 
+function getGravatarUrl(email: string, size = 32): string {
+  const hash = crypto.createHash("md5").update(email.trim().toLowerCase()).digest("hex");
+  return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=mp`;
+}
+
 function buildHoverMessage(info: CommitInfo) {
   if (info.state !== "commit") return [];
   const commit = info.commit;
@@ -659,9 +665,11 @@ function buildHoverMessage(info: CommitInfo) {
   const email = commit.email.replace("@", "&#64;");
   const date = isoDate(commit.timestamp);
   const message = commit.message?.markdown ?? "_Commit message loading..._";
+  const avatarUrl = getGravatarUrl(commit.email, 32);
   const mainPart = new vscode.MarkdownString(
-    `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
+    `![avatar](${avatarUrl}) **${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
   );
+  mainPart.isTrusted = true;
   const command = vscode.Uri.from({ scheme: "command", path: "betterGitLineBlame.showDiff" });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
   diffPart.isTrusted = true;
