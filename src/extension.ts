@@ -464,9 +464,29 @@ async function showCommitDocument(options: { rendered: boolean }) {
   else vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), vscode.ViewColumn.Beside);
 }
 
-function commandShowDiff() {
+async function commandShowDiff() {
   const info = getLastCommitInfoFull();
   if (!info) return;
+
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) return;
+
+  const gitRepo = gitApi.getRepository(activeEditor.document.uri);
+  if (!gitRepo) return;
+
+  const repoRoot = gitRepo.rootUri.fsPath;
+  const relativePath = info.beforePath.startsWith(repoRoot)
+    ? info.beforePath.slice(repoRoot.length + 1).replace(/\\/g, "/")
+    : info.beforePath;
+
+  const beforeSha = info.sha + "~";
+  const fileExisted = await fileExistsAtCommit(gitRepo, beforeSha, relativePath);
+
+  if (!fileExisted) {
+    vscode.window.showInformationMessage("The file did not exist in the previous commit");
+    return;
+  }
+
   vscode.commands.executeCommand("vscode.diff", ...info.diffArgs);
 }
 
@@ -529,6 +549,7 @@ interface CommitInfoFull {
   sha: Sha,
   commit: Commit,
   diffArgs: vscode.Uri[],
+  beforePath: string,
   loadedMessage?: Promise<void>,
 }
 
@@ -563,6 +584,7 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, maxSummaryLength === 0 ? Infinity : maxSummaryLength),
     diffArgs: [gitUri(sha + "~", beforePath), gitUri(sha, afterPath)],
+    beforePath,
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
@@ -640,7 +662,7 @@ function buildHoverMessage(info: CommitInfo) {
   const mainPart = new vscode.MarkdownString(
     `**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
   );
-  const command = vscode.Uri.from({ scheme: "command", path: "vscode.diff", query: JSON.stringify(info.diffArgs) });
+  const command = vscode.Uri.from({ scheme: "command", path: "betterGitLineBlame.showDiff" });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
   diffPart.isTrusted = true;
   return [mainPart, diffPart];
@@ -747,6 +769,13 @@ async function gitStdout(repo: git.Repository, args: string[]) {
   let result = "";
   for await (const data of proc.stdout) result += data;
   return result;
+}
+
+async function fileExistsAtCommit(repo: git.Repository, sha: string, relativePath: string): Promise<boolean> {
+  const proc = gitSpawn(repo, ["cat-file", "-e", `${sha}:${relativePath}`]);
+  return new Promise((resolve) => {
+    proc.on("close", (code) => resolve(code === 0));
+  });
 }
 
 function isoDate(timestamp: number) {
