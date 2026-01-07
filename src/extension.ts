@@ -465,9 +465,9 @@ async function showCommitDocument(options: { rendered: boolean }) {
   else vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), vscode.ViewColumn.Beside);
 }
 
-async function commandShowDiff() {
-  const info = getLastCommitInfoFull();
-  if (!info) return;
+async function commandShowDiff(args?: { sha: Sha, beforePath: string, afterPath: string }) {
+  args ??= getLastCommitInfoFull();
+  if (!args) return;
 
   const activeEditor = vscode.window.activeTextEditor;
   if (!activeEditor) return;
@@ -475,20 +475,22 @@ async function commandShowDiff() {
   const gitRepo = gitApi.getRepository(activeEditor.document.uri);
   if (!gitRepo) return;
 
+  // Have to use path with slashes even on Windows because we are talking about
+  // a file in git's history. The file might not exist on disk and that's fine.
   const repoRoot = gitRepo.rootUri.fsPath;
-  const relativePath = info.beforePath.startsWith(repoRoot)
-    ? info.beforePath.slice(repoRoot.length + 1).replace(/\\/g, "/")
-    : info.beforePath;
-
-  const beforeSha = info.sha + "~";
+  const relativePath = args.beforePath.startsWith(repoRoot)
+    ? args.beforePath.slice(repoRoot.length + 1).replace(/\\/g, "/")
+    : args.beforePath;
+  const beforeSha = args.sha + "~";
   const fileExisted = await fileExistsAtCommit(gitRepo, beforeSha, relativePath);
-
   if (!fileExisted) {
     vscode.window.showInformationMessage("The file did not exist in the previous commit");
     return;
   }
 
-  vscode.commands.executeCommand("vscode.diff", ...info.diffArgs);
+  const beforeUri = gitUri(beforeSha, args.beforePath);
+  const afterUri = gitUri(args.sha, args.afterPath);
+  vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri);
 }
 
 function getLastCommitInfoFull(): CommitInfoFull | undefined {
@@ -549,8 +551,8 @@ interface CommitInfoFull {
   summary: string,
   sha: Sha,
   commit: Commit,
-  diffArgs: vscode.Uri[],
   beforePath: string,
+  afterPath: string,
   loadedMessage?: Promise<void>,
 }
 
@@ -584,8 +586,8 @@ function getCommitInfo(document: vscode.TextDocument, repo: Repository, file: Fi
     who: commit.email === repo.email ? "You" : commit.author,
     when: friendlyTimestamp(commit.timestamp),
     summary: truncateEllipsis(commit.summary, maxSummaryLength === 0 ? Infinity : maxSummaryLength),
-    diffArgs: [gitUri(sha + "~", beforePath), gitUri(sha, afterPath)],
     beforePath,
+    afterPath,
   };
   if (commit.message === undefined) {
     info.loadedMessage = (async () => {
@@ -670,7 +672,12 @@ function buildHoverMessage(info: CommitInfo) {
     `![avatar](${avatarUrl}) **${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
   );
   mainPart.isTrusted = true;
-  const command = vscode.Uri.from({ scheme: "command", path: "betterGitLineBlame.showDiff" });
+  const query = encodeURIComponent(JSON.stringify({
+    sha: info.sha,
+    beforePath: info.beforePath,
+    afterPath: info.afterPath,
+  }));
+  const command = vscode.Uri.from({ scheme: "command", path: "betterGitLineBlame.showDiff", query });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
   diffPart.isTrusted = true;
   return [mainPart, diffPart];
