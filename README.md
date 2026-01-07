@@ -46,6 +46,10 @@ Get [Better Git Line Blame](https://marketplace.visualstudio.com/items?itemName=
     - Show git blame information in the status bar. Click on the status bar item to see more details.
 - **betterGitLineBlame.enableHoverMessages** (default: true)
     - Show commit details when hovering over inline annotations.
+- **betterGitLineBlame.showAuthorAvatar** (default: true)
+    - Show commit author avatars in hover messages. The avatars are fetched from Gravatar based on email address.
+- **betterGitLineBlame.authorAvatarSize** (default: 16)
+    - Size of commit author avatars in CSS px.
 - **betterGitLineBlame.annotateWholeLine** (default: false)
     - Attach annotations to the entire line. This prevents flicker when deleting lines, but shows commit details when hovering anywhere on the line.
 - **betterGitLineBlame.statusBarItemPriority** (default: 500)
