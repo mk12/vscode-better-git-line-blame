@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.15
 
 - Fix "Show diff" behavior when the file was added by that commit ([#23](https://github.com/mk12/vscode-better-git-line-blame/pull/23) by [sealye09](https://github.com/sealye09)).
 - Show commit author avatars from Gravatar ([#23](https://github.com/mk12/vscode-better-git-line-blame/pull/23) by [sealye09](https://github.com/sealye09)).
