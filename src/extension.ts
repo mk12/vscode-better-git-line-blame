@@ -671,7 +671,6 @@ function buildHoverMessage(info: CommitInfo) {
   const mainPart = new vscode.MarkdownString(
     `![avatar](${avatarUrl}) **${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
   );
-  mainPart.isTrusted = true;
   const query = encodeURIComponent(JSON.stringify({
     sha: info.sha,
     beforePath: info.beforePath,
