@@ -84,6 +84,16 @@
                     "default": true,
                     "description": "Show commit details when hovering over inline annotations."
                 },
+                "betterGitLineBlame.showAuthorAvatar": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show commit author avatars in hover messages. The avatars are fetched from Gravatar based on email address."
+                },
+                "betterGitLineBlame.authorAvatarSize": {
+                    "type": "number",
+                    "default": 16,
+                    "description": "Size of commit author avatars in CSS px."
+                },
                 "betterGitLineBlame.annotateWholeLine": {
                     "type": "boolean",
                     "default": false,

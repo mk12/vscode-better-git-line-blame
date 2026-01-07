@@ -655,7 +655,7 @@ function autolinkIssuesAndPrs(text: string, host: Host | undefined) {
   return text;
 }
 
-function getGravatarUrl(email: string, size = 32): string {
+function getGravatarUrl(email: string, size: number): string {
   const hash = crypto.createHash("md5").update(email.trim().toLowerCase()).digest("hex");
   return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=mp`;
 }
@@ -667,10 +667,20 @@ function buildHoverMessage(info: CommitInfo) {
   const email = commit.email.replace("@", "&#64;");
   const date = isoDate(commit.timestamp);
   const message = commit.message?.markdown ?? "_Commit message loading..._";
-  const avatarUrl = getGravatarUrl(commit.email, 32);
-  const mainPart = new vscode.MarkdownString(
-    `![avatar](${avatarUrl}) **${commit.author}** &lt;${email}&gt;, ${info.when} (${date})\n\n${message}`
+  const config = getConfig();
+  let avatarPrefix = "";
+  if (config.get("showAuthorAvatar")) {
+    const size = config.get<number>("authorAvatarSize");
+    if (!size) throw Error("authorAvatarSize must be set");
+    // Ideally we'd use srcset for 2x but it doesn't work in VS Code hovers.
+    const url = getGravatarUrl(commit.email, size * 2);
+    avatarPrefix = `<img src="${url}" width="${size}" height="${size}"> `;
+  }
+  const topPart = new vscode.MarkdownString(
+    `${avatarPrefix}**${commit.author}** &lt;${email}&gt;, ${info.when} (${date})`
   );
+  topPart.supportHtml = true;
+  const messagePart = new vscode.MarkdownString(message);
   const query = encodeURIComponent(JSON.stringify({
     sha: info.sha,
     beforePath: info.beforePath,
@@ -679,7 +689,7 @@ function buildHoverMessage(info: CommitInfo) {
   const command = vscode.Uri.from({ scheme: "command", path: "betterGitLineBlame.showDiff", query });
   const diffPart = new vscode.MarkdownString(`[Show diff](${command}): ${info.sha}`);
   diffPart.isTrusted = true;
-  return [mainPart, diffPart];
+  return [topPart, messagePart, diffPart];
 }
 
 function gitUri(ref: Sha, path: string) {
