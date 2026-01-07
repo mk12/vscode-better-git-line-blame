@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Fix "Show diff" behavior when the file was added by that commit ([#23](https://github.com/mk12/vscode-better-git-line-blame/pull/23) by [sealye09](https://github.com/sealye09)).
+- Show commit author avatars from Gravatar ([#23](https://github.com/mk12/vscode-better-git-line-blame/pull/23) by [sealye09](https://github.com/sealye09)).
+- Add configuration `betterGitLineBlame.showAuthorAvatar` (true by default) so that users can opt out of avatars.
+- Add configuration `betterGitLineBlame.authorAvatarSize` (16 by default) so that users can customize the size.
+
 ## 0.2.14
 
 - Fix handling of commit messages with CRLF line endings.
